@@ -5,6 +5,7 @@ import brokerInteractionRoutes from './brokerInteractionRoutes.js';
 import brokerRoutes from './brokerRoutes.js';
 import ownerInteractionRoutes from './ownerInteractionRoutes.js';
 import ownerRoutes from './ownerRoutes.js';
+import propertyRoutes from './propertyRoutes.js';
 
 const router = express.Router();
 
@@ -15,6 +16,7 @@ router.use("/broker/interaction", brokerInteractionRoutes);
 router.use("/broker", brokerRoutes);
 router.use("/owner/interaction", ownerInteractionRoutes);
 router.use("/owner", ownerRoutes);
+router.use("/property", propertyRoutes);
 
 
 export default router ;

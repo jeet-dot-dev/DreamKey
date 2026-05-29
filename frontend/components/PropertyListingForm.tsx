@@ -6,6 +6,10 @@ import { cn } from "@/lib/utlis";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { saveListing } from "@/lib/fileStorage";
+import { useOwners } from "@/hooks/useOwners";
+import { useBrokers } from "@/hooks/useBrokers";
+
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 type FormData = {
   // Basic Information
@@ -109,6 +113,14 @@ export default function PropertyListingForm() {
   const [imagePreviews, setImagePreviews] = useState<ImagePreview[]>([]);
   const [brochuirePreview, setBrochurePreview] = useState<{ file: File; preview: string } | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  // Owner/Broker selection state
+  const [ownerQuery, setOwnerQuery] = useState("");
+  const [brokerQuery, setBrokerQuery] = useState("");
+  const { data: owners = [], loading: ownersLoading } = useOwners({ name: ownerQuery });
+  const { brokers = [], isLoading: brokersLoading } = useBrokers();
+
+  const filteredOwners = ownerQuery ? owners.filter((o: any) => o.name?.toLowerCase().includes(ownerQuery.toLowerCase())) : owners;
+  const filteredBrokers = brokerQuery ? brokers.filter((b: any) => b.name?.toLowerCase().includes(brokerQuery.toLowerCase())) : brokers;
 
   // Input change handler
   const handleInputChange = (
@@ -211,18 +223,20 @@ export default function PropertyListingForm() {
   // Form submission handler
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    // Validation
-    if (
-      !formData.propertyType ||
-      !formData.buildingName ||
-      !formData.location ||
-      !formData.pinCode ||
-      imagePreviews.length === 0
-    ) {
+    // Validation: require basic fields and either owner or sourcePartner selection
+    if (!formData.propertyType || !formData.buildingName || !formData.location || !formData.pinCode) {
       toast.error("Validation Error", {
-        description: "Please fill all required fields and upload at least one image.",
+        description: "Please fill required fields (type, building, location, pin code).",
       });
+      return;
+    }
+
+    // prefer ownerId/sourcePartnerId provided via formData.ownerName/sourcePartner
+    const ownerId = (formData as any).ownerId ?? null;
+    const sourcePartnerId = (formData as any).sourcePartnerId ?? null;
+
+    if (!ownerId && !sourcePartnerId) {
+      toast.error("Relation required", { description: "Select an owner or a source partner (broker)." });
       return;
     }
 
@@ -230,19 +244,47 @@ export default function PropertyListingForm() {
       setIsSubmitting(true);
       const loadingToast = toast.loading("Saving property listing...");
 
-      // Save listing with images
-      const listingId = await saveListing(
-        formData,
-        imagePreviews,
-        brochuirePreview
-      );
+      // Build payload
+      const payload: any = {
+        propertyType: formData.propertyType ? formData.propertyType.toUpperCase() : undefined,
+        buildingName: formData.buildingName,
+        location: formData.location,
+        pinCode: formData.pinCode,
+        floorNumber: formData.floorNumber || undefined,
+        totalFloors: formData.totalFloors || undefined,
+        bedrooms: formData.bedrooms || undefined,
+        bathrooms: formData.bathrooms || undefined,
+        balconies: formData.balconies || undefined,
+        carpetArea: formData.carpetArea || undefined,
+        superBuiltUpArea: formData.superBuiltUpArea || undefined,
+        askingPrice: formData.askingPrice || undefined,
+        availabilityStatus: formData.availabilityStatus || undefined,
+        availabilityDate: formData.availabilityDate || undefined,
+        ownerId,
+        sourcePartnerId,
+        accessType: formData.accessType || undefined,
+        remarks: formData.remarks || undefined,
+        amenities: formData.amenities,
+      };
 
-      toast.dismiss(loadingToast);
-      toast.success("Property listing created successfully!", {
-        description: `Listing ID: ${listingId}`,
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${apiBaseUrl}/api/v1/property`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify(payload),
       });
 
-      // Reset form
+      const respText = await res.text();
+      const respJson = respText ? JSON.parse(respText) : {};
+      if (!res.ok) throw new Error(respJson?.message || `${res.status} ${res.statusText}`);
+
+      toast.dismiss(loadingToast);
+      toast.success("Property listing created successfully!", { description: respJson?.message ?? "Created" });
+
+      // Reset form (keep images handling local but clear previews)
       setFormData({
         propertyType: "",
         buildingName: "",
@@ -282,11 +324,7 @@ export default function PropertyListingForm() {
       });
       setImagePreviews([]);
       setBrochurePreview(null);
-
-      // Redirect after 2 seconds
-      setTimeout(() => {
-        router.push("/stock/overview");
-      }, 2000);
+      setTimeout(() => router.push("/stock/overview"), 1200);
     } catch (error) {
       console.error("Error saving listing:", error);
       toast.error("Failed to save listing", {
@@ -734,6 +772,35 @@ export default function PropertyListingForm() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
+                  Select Owner (search)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search owners by name"
+                  value={ownerQuery}
+                  onChange={(e) => setOwnerQuery(e.target.value)}
+                  className="dream-text-input mb-2"
+                />
+                <select
+                  name="ownerId"
+                  onChange={(e) => {
+                    const selected = e.target.value;
+                    const text = e.target.options[e.target.selectedIndex].text;
+                    setFormData((p) => ({ ...(p as any), ownerName: text, ownerId: selected }));
+                  }}
+                  className="dream-select"
+                >
+                  <option value="">-- Select Owner (optional) --</option>
+                  {filteredOwners?.map((o: any) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
                   Owner Name
                 </label>
                 <input
@@ -799,8 +866,33 @@ export default function PropertyListingForm() {
                 placeholder="e.g. Internal Marketing, Partner XYZ"
                 value={formData.sourcePartner}
                 onChange={handleInputChange}
-                className="dream-text-input"
+                className="dream-text-input mb-2"
               />
+
+              <input
+                type="text"
+                placeholder="Search brokers by name"
+                value={brokerQuery}
+                onChange={(e) => setBrokerQuery(e.target.value)}
+                className="dream-text-input mb-2"
+              />
+
+              <select
+                name="sourcePartnerId"
+                onChange={(e) => {
+                  const selected = e.target.value;
+                  const text = e.target.options[e.target.selectedIndex].text;
+                  setFormData((p) => ({ ...(p as any), sourcePartner: text, sourcePartnerId: selected }));
+                }}
+                className="dream-select"
+              >
+                <option value="">-- Select Broker (optional) --</option>
+                {filteredBrokers?.map((b: any) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
