@@ -1,0 +1,288 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider      = "prisma-client"
+  output        = "../src/generated/prisma"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  INTERN
+}
+
+enum PropertyType {
+  FLAT
+  LAND
+  WAREHOUSE
+  COMMERCIAL
+  OTHER
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  RENTED
+  SOLD
+  UPCOMING
+}
+
+enum ContactStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum OwnerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id String @id @default(uuid())
+  username String
+  email String @unique
+  password String
+  phone String @db.VarChar(10)
+  image String?
+  role Role @default(ADMIN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  propertyListings PropertyListing[]
+  brokerListings Broker[] @relation("PrimaryContactBroker")
+  ownerListings Owner[] @relation("PrimaryContactOwner")
+}
+
+// ============ OWNER MODEL ============
+model Owner {
+  id String @id @default(uuid())
+  
+  // Basic Information
+  name String @db.VarChar(100)
+  phone String @db.VarChar(10)
+  email String
+  whatsapp String? @db.VarChar(10)
+  address String? @db.Text
+  
+  // Status
+  status OwnerStatus @default(ACTIVE)
+  
+  // Primary Contact Partner
+  primaryContactPartnerId String?
+  primaryContactPartner User? @relation("PrimaryContactOwner", fields: [primaryContactPartnerId], references: [id], onDelete: SetNull)
+  
+  // Preferences
+  preferredRentMin BigInt?
+  preferredRentMax BigInt?
+  preferredPropertyTypes String? // JSON stored as string: ["Flat", "Land"]
+  preferredDealTerms String? @db.Text
+  
+  // Relations
+  propertyListings PropertyListing[]
+  communicationLogs OwnerCommunicationLog[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  archive Boolean @default(false)
+  favorites Boolean @default(false)
+  
+  @@index([email])
+  @@index([phone])
+  @@index([status])
+  @@index([primaryContactPartnerId])
+}
+
+model OwnerCommunicationLog {
+  id String @id @default(uuid())
+  
+  ownerId String
+  owner Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  subject String @db.VarChar(255)
+  notes String @db.Text
+  communicationType String @db.VarChar(50) // "Call", "Email", "WhatsApp", "In-Person"
+  
+  createdAt DateTime @default(now())
+  
+  @@index([ownerId])
+  @@index([createdAt])
+}
+
+// ============ BROKER MODEL ============
+model Broker {
+  id String @id @default(uuid())
+  
+  // Basic Information
+  name String @db.VarChar(100)
+  phone String @db.VarChar(10)
+  email String
+  whatsapp String? @db.VarChar(10)
+  areaOfOperation String? @db.Text // JSON array of areas
+  
+  // Status
+  status ContactStatus @default(ACTIVE)
+  
+  // Primary Contact Partner
+  primaryContactPartnerId String?
+  primaryContactPartner User? @relation("PrimaryContactBroker", fields: [primaryContactPartnerId], references: [id], onDelete: SetNull)
+  
+  // Budget Range
+  budgetMin BigInt?
+  budgetMax BigInt?
+  
+  // Expertise
+  societyExpertise String? @db.Text // JSON array of societies/areas
+  
+  // Additional Notes
+  notes String? @db.Text
+  
+  // Relations
+  interactionLogs BrokerInteractionLog[]
+  propertyListings PropertyListing[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  archive Boolean @default(false)
+  favorites Boolean @default(false)
+  
+  @@index([email])
+  @@index([phone])
+  @@index([status])
+  @@index([primaryContactPartnerId])
+}
+
+model BrokerInteractionLog {
+  id String @id @default(uuid())
+  
+  brokerId String
+  broker Broker @relation(fields: [brokerId], references: [id], onDelete: Cascade)
+  
+  subject String @db.VarChar(255)
+  notes String @db.Text
+  communicationType String @db.VarChar(50) // "Call", "Email", "WhatsApp", "In-Person", "Meeting"
+  
+  createdAt DateTime @default(now())
+  
+  @@index([brokerId])
+  @@index([createdAt])
+}
+
+model PropertyListing {
+  id String @id @default(uuid())
+  
+  // Basic Information
+  propertyType PropertyType
+  buildingName String @db.VarChar(100)
+  location String @db.VarChar(100)
+  pinCode String @db.VarChar(6)
+  
+  // Technical Specifications
+  floorNumber String? @db.VarChar(50)
+  totalFloors Int?
+  bedrooms Decimal?
+  bathrooms Decimal?
+  balconies Int?
+  carpetArea Decimal?
+  superBuiltUpArea Decimal?
+  
+  // Pricing & Status
+  askingPrice BigInt
+  availabilityStatus AvailabilityStatus
+  availabilityDate DateTime?
+  
+  // Access Type & Notes
+  accessType String? @db.VarChar(100)
+  remarks String? @db.Text
+  
+  // Society Insights
+  builderName String? @db.VarChar(100)
+  yearBuilt Int?
+  totalUnits Int?
+  reraNumber String? @db.VarChar(100)
+  
+  // Relations
+  ownerId String?
+  owner Owner? @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  sourcePartnerId String?
+  sourcePartner Broker? @relation(fields: [sourcePartnerId], references: [id], onDelete: SetNull)
+  
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  amenities PropertyAmenities?
+  images PropertyImage[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  archive Boolean @default(false)
+  favorites Boolean @default(false)
+  
+  @@index([userId])
+  @@index([ownerId])
+  @@index([sourcePartnerId])
+  @@index([availabilityStatus])
+  @@index([propertyType])
+}
+
+model PropertyAmenities {
+  id String @id @default(uuid())
+  
+  parking Boolean @default(false)
+  gym Boolean @default(false)
+  lift Boolean @default(false)
+  security Boolean @default(false)
+  powerBackup Boolean @default(false)
+  swimmingPool Boolean @default(false)
+  clubhouse Boolean @default(false)
+  
+  // Relation to PropertyListing
+  propertyListingId String @unique
+  propertyListing PropertyListing @relation(fields: [propertyListingId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PropertyImage {
+  id String @id @default(uuid())
+  
+  url String
+  publicId String? // For Cloudinary or similar
+  order Int @default(0)
+  
+  // Relation to PropertyListing
+  propertyListingId String
+  propertyListing PropertyListing @relation(fields: [propertyListingId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@index([propertyListingId])
+}
+
+model PropertyBrochure {
+  id String @id @default(uuid())
+  
+  url String
+  publicId String? // For Cloudinary or similar
+  fileName String
+  
+  // Could be related to PropertyListing if needed
+  propertyListingId String? // Optional for now
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+

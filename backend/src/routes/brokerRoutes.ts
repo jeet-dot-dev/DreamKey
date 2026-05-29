@@ -1,0 +1,13 @@
+import express from 'express';
+import { addNewBroker, getBroker, getBrokerById, updateBroker } from '../controllers/brokerController.js';
+import { verifyToken } from '../middlewares/auth.js';
+
+const brokerRoutes = express.Router();
+
+brokerRoutes.post("/add",verifyToken,addNewBroker);
+brokerRoutes.get("/get",getBroker);
+brokerRoutes.get("/:id",getBrokerById);
+brokerRoutes.put("/:id",verifyToken,updateBroker);
+
+
+export default brokerRoutes ;
