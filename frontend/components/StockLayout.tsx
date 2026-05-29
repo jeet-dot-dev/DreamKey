@@ -92,12 +92,7 @@ export default function StockLayout({ children, variant = "stock" }: StockLayout
       id: "favorites",
       href: `/${variant}/favorites`,
     },
-    {
-      label: "Interaction",
-      icon: LayoutDashboard,
-      id: "Interaction",
-      href: `/${variant}/interaction`,
-    },
+   
   ];
 
   return (

@@ -70,7 +70,7 @@ const DetailItem: React.FC<DetailItemProps> = ({ icon, label, value, className =
     <div className="text-primary/80 mt-1">{icon}</div>
     <div className="flex-1 min-w-0">
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">{label}</p>
-      <div className="text-sm text-foreground font-medium break-words">{value || 'N/A'}</div>
+      <div className="text-sm text-foreground font-medium wrap-break-word">{value || 'N/A'}</div>
     </div>
   </div>
 );

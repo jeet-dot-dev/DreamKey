@@ -215,7 +215,7 @@ export const getBroker = async (req: AuthRequest, res: Response) => {
       },
     });
   } catch (error) {
-    console.error('Error fetching brokers:', error);
+   console.error(error);
     return res.status(500).json({
       message: 'Failed to fetch brokers',
       error: error instanceof Error ? error.message : 'Unknown error',
