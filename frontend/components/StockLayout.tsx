@@ -18,7 +18,7 @@ import { useRouter, usePathname } from "next/navigation";
 
 type StockLayoutProps = {
   children: React.ReactNode;
-  variant?: "broker" | "stock";
+  variant?: "broker" | "stock"  | "owner";
 };
 
 type User = {

@@ -89,7 +89,7 @@ export const saveListing = async (
       brochure: brochureBase64
         ? {
             id: `br_${listingId}`,
-            filename: brochure.file.name,
+            filename: brochure?.file.name ?? "brochure.pdf",
             caption: "Society Brochure",
             data: brochureBase64,
             timestamp: Date.now(),

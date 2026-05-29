@@ -1,52 +1,37 @@
+"use client";
+
+import React from "react";
+import { Archive } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+
 export default function ArchivesPage() {
-  const archived = [
-    { id: 1, name: "Old Commercial Property", archived: "2 months ago" },
-    { id: 2, name: "Discontinued Listing", archived: "6 weeks ago" },
-    { id: 3, name: "Sold Property", archived: "3 months ago" },
-    { id: 4, name: "Inactive Stock", archived: "1 month ago" },
-  ];
+  const router = useRouter();
 
   return (
     <div className="h-full">
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Archives</h1>
-          <p className="text-neutral-400">View and manage your archived stocks</p>
+          <p className="text-neutral-400">Archived stocks will appear here soon.</p>
         </div>
 
-        {/* Archived Items */}
-        <div className="space-y-3">
-          {archived.map((item) => (
-            <div
-              key={item.id}
-              className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 hover:border-neutral-700 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-white font-medium">{item.name}</h3>
-                  <p className="text-neutral-500 text-sm">Archived {item.archived}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white rounded-lg text-sm transition-all cursor-pointer">
-                    Restore
-                  </button>
-                  <button className="px-3 py-2 bg-neutral-800/50 hover:bg-red-900/30 text-neutral-300 hover:text-red-400 rounded-lg text-sm transition-all cursor-pointer">
-                    Delete
-                  </button>
-                </div>
-              </div>
+        <div className="flex items-center justify-center">
+          <div className="mx-auto max-w-xl text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-neutral-900 border border-neutral-800">
+              <Archive className="h-8 w-8 text-yellow-400" />
             </div>
-          ))}
-        </div>
-
-        {/* Empty state option */}
-        {archived.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-4xl text-neutral-700 mb-3">📦</div>
-            <h3 className="text-lg font-semibold text-white mb-2">No Archived Items</h3>
-            <p className="text-neutral-400">Your archived stocks will appear here</p>
+            <h2 className="text-2xl font-semibold text-white mb-2">Coming Soon</h2>
+            <p className="text-neutral-400 mb-6">
+              We’re building a dedicated archive area to help you store and restore old listings. It will arrive shortly.
+            </p>
+            <div className="flex justify-center gap-3">
+              <Button onClick={() => router.push("/stock/overview")} className="bg-yellow-400 text-black hover:bg-yellow-300">
+                Go to Overview
+              </Button>
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

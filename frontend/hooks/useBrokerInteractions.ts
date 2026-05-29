@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+
 export type Interaction = {
   id: string;
   brokerId: string;
@@ -28,10 +30,10 @@ export function useBrokerInteractions(brokerId?: string): UseBrokerInteractionsR
     setError(null);
     try {
       // Expected backend endpoint: GET /broker/interaction?brokerId={id}
-      // If your backend uses a different path (e.g. /api/...), update this URL.
-      const res = await fetch(`/broker/interaction?brokerId=${encodeURIComponent(brokerId)}`);
+      const res = await fetch(`${apiBaseUrl}/api/v1/broker/interaction?brokerId=${encodeURIComponent(brokerId)}`);
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const payload = await res.json();
+      console.log("Fetched interactions payload:", payload);
       // Support multiple payload shapes
       const list: Interaction[] = Array.isArray(payload) ? payload : payload.data ?? payload.interactions ?? [];
       setData(list.map((i: any) => ({ ...i, createdAt: i.createdAt })));
