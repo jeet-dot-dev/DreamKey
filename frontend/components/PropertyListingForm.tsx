@@ -1,15 +1,22 @@
 "use client";
 
 import React, { useState } from "react";
-import { Upload, X } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, CheckCircle2, Loader2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utlis";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { saveListing } from "@/lib/fileStorage";
 import { useOwners } from "@/hooks/useOwners";
 import { useBrokers } from "@/hooks/useBrokers";
+import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+const IMAGE_MAX_SIZE = 2 * 1024 * 1024; // 2 MB
+const BROCHURE_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+
+type UploadStatus = "pending" | "uploading" | "uploaded" | "failed";
 
 type FormData = {
   // Basic Information
@@ -32,14 +39,11 @@ type FormData = {
   availabilityStatus: string;
   availabilityDate: string;
 
-  // Owner Details
-  ownerName: string;
-  ownerPhone: string;
-  ownerEmail: string;
+  // Owner/Source
+  ownerId?: string;
   accessType: string;
-
-  // Source & Notes
   sourcePartner: string;
+  sourcePartnerId?: string;
   remarks: string;
 
   // Society Insights
@@ -62,13 +66,28 @@ type FormData = {
   societyBrochure: File | null;
 };
 
-type ImagePreview = {
-  file: File;
-  preview: string;
-  caption: string;
-};
-
 export default function PropertyListingForm() {
+
+  type ImagePreview = {
+    id: string;
+    file: File;
+    preview: string;
+    caption: string;
+    objectKey?: string;
+    publicUrl?: string | null;
+    uploadStatus: UploadStatus;
+    error?: string;
+  };
+
+  type BrochurePreview = {
+    file: File;
+    preview: string;
+    objectKey?: string;
+    publicUrl?: string | null;
+    uploadStatus: UploadStatus;
+    error?: string;
+  };
+
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -87,11 +106,10 @@ export default function PropertyListingForm() {
     askingPrice: "",
     availabilityStatus: "",
     availabilityDate: "",
-    ownerName: "",
-    ownerPhone: "",
-    ownerEmail: "",
+    ownerId: undefined,
     accessType: "",
     sourcePartner: "",
+    sourcePartnerId: undefined,
     remarks: "",
     builderName: "",
     yearBuilt: "",
@@ -111,7 +129,7 @@ export default function PropertyListingForm() {
   });
 
   const [imagePreviews, setImagePreviews] = useState<ImagePreview[]>([]);
-  const [brochuirePreview, setBrochurePreview] = useState<{ file: File; preview: string } | null>(null);
+  const [brochuirePreview, setBrochurePreview] = useState<BrochurePreview | null>(null);
   const [dragActive, setDragActive] = useState(false);
   // Owner/Broker selection state
   const [ownerQuery, setOwnerQuery] = useState("");
@@ -119,18 +137,82 @@ export default function PropertyListingForm() {
   const { data: owners = [], loading: ownersLoading } = useOwners({ name: ownerQuery });
   const { brokers = [], isLoading: brokersLoading } = useBrokers();
 
-  const filteredOwners = ownerQuery ? owners.filter((o: any) => o.name?.toLowerCase().includes(ownerQuery.toLowerCase())) : owners;
-  const filteredBrokers = brokerQuery ? brokers.filter((b: any) => b.name?.toLowerCase().includes(brokerQuery.toLowerCase())) : brokers;
+  const filteredOwners = (ownerQuery && owners) ? owners.filter((o: any) => o.name?.toLowerCase().includes(ownerQuery.toLowerCase())) : (owners || []);
+  const filteredBrokers = (brokerQuery && brokers) ? brokers.filter((b: any) => b.name?.toLowerCase().includes(brokerQuery.toLowerCase())) : (brokers || []);
+
+  const parseErrorMessage = async (response: Response, fallback: string) => {
+    const text = await response.text();
+    if (!text) return fallback;
+
+    try {
+      const json = JSON.parse(text);
+      return json?.message || json?.error || fallback;
+    } catch {
+      return text;
+    }
+  };
+
+  const getAuthToken = () => localStorage.getItem("token");
+
+  const requestPresignedUrl = async (file: File, folder: string) => {
+    const token = getAuthToken();
+    const res = await fetch(`${apiBaseUrl}/api/v1/upload/presign`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+      body: JSON.stringify({ fileName: file.name, contentType: file.type, folder }),
+    });
+
+    const text = await res.text();
+    const json = text ? JSON.parse(text) : {};
+    if (!res.ok) throw new Error(json?.message || "Failed to get presigned URL");
+    return json.data as { objectKey: string; uploadUrl: string; publicUrl: string | null };
+  };
+
+  const uploadToR2 = async (uploadUrl: string, file: File) => {
+    const r = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+    if (!r.ok) {
+      throw new Error(await parseErrorMessage(r, "R2 upload failed"));
+    }
+  };
+
+  const deleteUploadedObject = async (objectKey: string) => {
+    const token = getAuthToken();
+    const res = await fetch(`${apiBaseUrl}/api/v1/upload/object`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+      body: JSON.stringify({ objectKey }),
+    });
+
+    if (!res.ok) {
+      throw new Error(await parseErrorMessage(res, "Failed to delete uploaded image"));
+    }
+  };
 
   // Input change handler
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => {
+      let next: any = { ...prev, [name]: value };
+      if (name === "accessType") {
+        if (value === "direct") {
+          // clear broker/source partner fields
+          next.sourcePartner = "";
+          next.sourcePartnerId = undefined;
+        } else if (value === "broker") {
+          // clear owner selection
+          next.ownerId = undefined;
+        }
+      }
+      return next;
+    });
   };
 
   // Amenities change handler
@@ -147,56 +229,112 @@ export default function PropertyListingForm() {
   // Handle image uploads
   const handleImageUpload = (files: FileList | null) => {
     if (!files) return;
+    const allowed = Array.from(files).slice(0, 20 - imagePreviews.length);
 
-    const newFiles = Array.from(files).slice(0, 20 - imagePreviews.length);
+    allowed.forEach(async (file) => {
+      if (!file.type.startsWith("image/")) return;
+      if (file.size > IMAGE_MAX_SIZE) {
+        toast.error("Image too large", { description: `${file.name} exceeds 2 MB.` });
+        return;
+      }
 
-    newFiles.forEach((file) => {
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setImagePreviews((prev) => [
-            ...prev,
-            {
-              file,
-              preview: reader.result as string,
-              caption: "",
-            },
-          ]);
-        };
-        reader.readAsDataURL(file);
+      const id = (crypto as any).randomUUID ? (crypto as any).randomUUID() : String(Date.now()) + Math.random();
+      const preview = URL.createObjectURL(file);
+      const uploadToastId = toast.loading(`Uploading ${file.name}`);
+
+      setImagePreviews((prev) => [
+        ...prev,
+        { id, file, preview, caption: "", uploadStatus: "uploading" },
+      ]);
+
+      try {
+        const presign = await requestPresignedUrl(file, "properties/images");
+        await uploadToR2(presign.uploadUrl, file);
+        setImagePreviews((prev) => prev.map((p) => p.id === id ? { ...p, uploadStatus: "uploaded", objectKey: presign.objectKey, publicUrl: presign.publicUrl ?? undefined } : p));
+        toast.dismiss(uploadToastId);
+        toast.success(`Uploaded ${file.name}`, {
+          description: "The image is ready to be saved with the listing.",
+        });
+      } catch (err: any) {
+        const message = err?.message ?? String(err);
+        setImagePreviews((prev) => prev.map((p) => p.id === id ? { ...p, uploadStatus: "failed", error: message } : p));
+        toast.dismiss(uploadToastId);
+        toast.error(`Failed to upload ${file.name}`, {
+          description: message,
+        });
       }
     });
   };
 
   // Handle brochure upload
-  const handleBrochureUpload = (files: FileList | null) => {
+  const handleBrochureUpload = async (files: FileList | null) => {
     if (!files || !files[0]) return;
     const file = files[0];
+    if (file.type !== "application/pdf") {
+      toast.error("Only PDF allowed");
+      return;
+    }
+    if (file.size > BROCHURE_MAX_SIZE) {
+      toast.error("Brochure too large", { description: "PDF must be <= 5 MB" });
+      return;
+    }
 
-    if (file.type === "application/pdf") {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setBrochurePreview({
-          file,
-          preview: reader.result as string,
-        });
-      };
-      reader.readAsDataURL(file);
+    const preview = URL.createObjectURL(file);
+    setBrochurePreview({ file, preview, uploadStatus: "uploading" });
+    const uploadToastId = toast.loading(`Uploading ${file.name}`);
+
+    try {
+      const presign = await requestPresignedUrl(file, "properties/brochures");
+      await uploadToR2(presign.uploadUrl, file);
+      setBrochurePreview({ file, preview, uploadStatus: "uploaded", objectKey: presign.objectKey, publicUrl: presign.publicUrl ?? undefined });
+      toast.dismiss(uploadToastId);
+      toast.success(`Uploaded ${file.name}`, {
+        description: "The brochure is ready to be saved with the listing.",
+      });
+    } catch (err: any) {
+      const message = err?.message ?? String(err);
+      setBrochurePreview({ file, preview, uploadStatus: "failed", error: message });
+      toast.dismiss(uploadToastId);
+      toast.error(`Failed to upload ${file.name}`, {
+        description: message,
+      });
     }
   };
 
-  // Remove image
-  const removeImage = (index: number) => {
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  // Remove image by id
+  const removeImage = async (id: string) => {
+    const image = imagePreviews.find((item) => item.id === id);
+    if (!image) return;
+
+    if (image.uploadStatus === "uploaded" && image.objectKey) {
+      const deleteToastId = toast.loading(`Removing ${image.file.name}`);
+      try {
+        await deleteUploadedObject(image.objectKey);
+        URL.revokeObjectURL(image.preview);
+        setImagePreviews((prev) => prev.filter((p) => p.id !== id));
+        toast.dismiss(deleteToastId);
+        toast.success(`Removed ${image.file.name}`, {
+          description: "The image was deleted from R2.",
+        });
+      } catch (error) {
+        toast.dismiss(deleteToastId);
+        toast.error(`Failed to remove ${image.file.name}`, {
+          description: error instanceof Error ? error.message : "Could not delete the uploaded image.",
+        });
+      }
+      return;
+    }
+
+    URL.revokeObjectURL(image.preview);
+    setImagePreviews((prev) => prev.filter((p) => p.id !== id));
+    toast.info(`Removed ${image.file.name}`, {
+      description: "This image was only removed from the form.",
+    });
   };
 
-  // Update image caption
-  const updateImageCaption = (index: number, caption: string) => {
-    setImagePreviews((prev) => {
-      const updated = [...prev];
-      updated[index].caption = caption;
-      return updated;
-    });
+  // Update image caption by id
+  const updateImageCaption = (id: string, caption: string) => {
+    setImagePreviews((prev) => prev.map((p) => p.id === id ? { ...p, caption } : p));
   };
 
   // Handle drag events
@@ -231,7 +369,7 @@ export default function PropertyListingForm() {
       return;
     }
 
-    // prefer ownerId/sourcePartnerId provided via formData.ownerName/sourcePartner
+    // prefer ownerId/sourcePartnerId provided via formData.ownerId/sourcePartnerId
     const ownerId = (formData as any).ownerId ?? null;
     const sourcePartnerId = (formData as any).sourcePartnerId ?? null;
 
@@ -240,9 +378,21 @@ export default function PropertyListingForm() {
       return;
     }
 
+    // Ensure all selected media are uploaded
+    if (imagePreviews.some((p) => p.uploadStatus !== "uploaded")) {
+      toast.error("Please wait for all images to finish uploading or remove failed ones.");
+      return;
+    }
+    if (brochuirePreview && brochuirePreview.uploadStatus !== "uploaded") {
+      toast.error("Please wait for brochure upload to finish or remove it.");
+      return;
+    }
+
+    let loadingToast: string | number | undefined;
+
     try {
       setIsSubmitting(true);
-      const loadingToast = toast.loading("Saving property listing...");
+      loadingToast = toast.loading("Saving property listing...");
 
       // Build payload
       const payload: any = {
@@ -267,6 +417,13 @@ export default function PropertyListingForm() {
         amenities: formData.amenities,
       };
 
+      // Attach uploaded media keys
+      const uploadedImages = imagePreviews.filter((p) => p.uploadStatus === "uploaded" && p.objectKey).map((p, idx) => ({ objectKey: p.objectKey, caption: p.caption || undefined, publicUrl: p.publicUrl, order: idx }));
+        if (uploadedImages.length) payload.images = uploadedImages;
+
+        if (brochuirePreview && brochuirePreview.uploadStatus === "uploaded" && brochuirePreview.objectKey) {
+          payload.brochure = { objectKey: brochuirePreview.objectKey, publicUrl: brochuirePreview.publicUrl, fileName: brochuirePreview.file.name };
+        }
       const token = localStorage.getItem("token");
       const res = await fetch(`${apiBaseUrl}/api/v1/property`, {
         method: "POST",
@@ -281,7 +438,7 @@ export default function PropertyListingForm() {
       const respJson = respText ? JSON.parse(respText) : {};
       if (!res.ok) throw new Error(respJson?.message || `${res.status} ${res.statusText}`);
 
-      toast.dismiss(loadingToast);
+      if (loadingToast) toast.dismiss(loadingToast);
       toast.success("Property listing created successfully!", { description: respJson?.message ?? "Created" });
 
       // Reset form (keep images handling local but clear previews)
@@ -300,9 +457,7 @@ export default function PropertyListingForm() {
         askingPrice: "",
         availabilityStatus: "",
         availabilityDate: "",
-        ownerName: "",
-        ownerPhone: "",
-        ownerEmail: "",
+        ownerId: undefined,
         accessType: "",
         sourcePartner: "",
         remarks: "",
@@ -327,6 +482,7 @@ export default function PropertyListingForm() {
       setTimeout(() => router.push("/stock/overview"), 1200);
     } catch (error) {
       console.error("Error saving listing:", error);
+      if (loadingToast) toast.dismiss(loadingToast);
       toast.error("Failed to save listing", {
         description:
           error instanceof Error ? error.message : "An unexpected error occurred.",
@@ -575,10 +731,10 @@ export default function PropertyListingForm() {
                   className="dream-select"
                 >
                   <option value="">Select Status</option>
-                  <option value="available">Available</option>
-                  <option value="rented">Rented</option>
-                  <option value="sold">Sold</option>
-                  <option value="upcoming">Upcoming</option>
+                  <option value="AVAILABLE">Available</option>
+                  <option value="RENTED">Rented</option>
+                  <option value="SOLD">Sold</option>
+                  <option value="UPCOMING">Upcoming</option>
                 </select>
               </div>
               <div>
@@ -654,30 +810,50 @@ export default function PropertyListingForm() {
               {/* Image Previews */}
               {imagePreviews.length > 0 && (
                 <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {imagePreviews.map((img, index) => (
-                    <div key={index} className="relative group">
+                  {imagePreviews.map((img) => (
+                    <div key={img.id} className="relative group">
                       <div className="relative bg-neutral-800 rounded-lg overflow-hidden aspect-square">
                         <img
                           src={img.preview}
-                          alt={`Property ${index + 1}`}
+                          alt={`Property`}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <button
                             type="button"
-                            onClick={() => removeImage(index)}
+                            onClick={() => removeImage(img.id)}
                             className="p-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
                           >
                             <X className="w-4 h-4 text-white" />
                           </button>
                         </div>
                       </div>
+                      <div className="mt-2 flex items-center gap-2 text-xs">
+                        {img.uploadStatus === "uploading" && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-400/15 px-2 py-1 text-yellow-300">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Uploading
+                          </span>
+                        )}
+                        {img.uploadStatus === "uploaded" && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-emerald-300">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Ready
+                          </span>
+                        )}
+                        {img.uploadStatus === "failed" && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-1 text-red-300">
+                            <AlertCircle className="h-3 w-3" />
+                            Failed
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         placeholder="Image caption"
                         value={img.caption}
-                        onChange={(e) => updateImageCaption(index, e.target.value)}
-                          className="mt-2 w-full bg-neutral-800 border border-neutral-600 rounded-lg px-2 py-1 text-white placeholder-neutral-500 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-400/40 focus:border-yellow-400 transition-all"
+                        onChange={(e) => updateImageCaption(img.id, e.target.value)}
+                        className="mt-2 w-full bg-neutral-800 border border-neutral-600 rounded-lg px-2 py-1 text-white placeholder-neutral-500 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-400/40 focus:border-yellow-400 transition-all"
                       />
                     </div>
                   ))}
@@ -691,20 +867,42 @@ export default function PropertyListingForm() {
                 Society Brochure (PDF)
               </p>
               {brochuirePreview ? (
-                <div className="bg-neutral-800 rounded-lg p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
-                      <span className="text-red-500 text-lg font-bold">PDF</span>
+                <div className="bg-neutral-800 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
+                        <span className="text-red-500 text-lg font-bold">PDF</span>
+                      </div>
+                      <div className="text-sm text-white">{brochuirePreview.file.name}</div>
                     </div>
-                    <div className="text-sm text-white">{brochuirePreview.file.name}</div>
+                    <button
+                      type="button"
+                      onClick={() => setBrochurePreview(null)}
+                      className="p-2 hover:bg-neutral-700 rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setBrochurePreview(null)}
-                    className="p-2 hover:bg-neutral-700 rounded-lg transition-colors"
-                  >
-                    <X className="w-4 h-4 text-white" />
-                  </button>
+                  <div className="flex items-center gap-2 text-xs">
+                    {brochuirePreview.uploadStatus === "uploading" && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-yellow-400/15 px-2 py-1 text-yellow-300">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Uploading
+                      </span>
+                    )}
+                    {brochuirePreview.uploadStatus === "uploaded" && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-emerald-300">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Ready
+                      </span>
+                    )}
+                    {brochuirePreview.uploadStatus === "failed" && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-1 text-red-300">
+                        <AlertCircle className="h-3 w-3" />
+                        Failed
+                      </span>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="border-2 border-dashed border-neutral-700 rounded-xl p-6 text-center">
@@ -768,132 +966,101 @@ export default function PropertyListingForm() {
               </div>
             </div>
 
-            {/* Owner Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Select Owner (search)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Search owners by name"
-                  value={ownerQuery}
-                  onChange={(e) => setOwnerQuery(e.target.value)}
-                  className="dream-text-input mb-2"
-                />
-                <select
-                  name="ownerId"
-                  onChange={(e) => {
-                    const selected = e.target.value;
-                    const text = e.target.options[e.target.selectedIndex].text;
-                    setFormData((p) => ({ ...(p as any), ownerName: text, ownerId: selected }));
-                  }}
-                  className="dream-select"
-                >
-                  <option value="">-- Select Owner (optional) --</option>
-                  {filteredOwners?.map((o: any) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                    </option>
-                  ))}
-                </select>
+            {formData.accessType === "direct" ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
+                    Select Owner
+                  </label>
+                  <SearchableDropdown
+                    options={filteredOwners?.map((o: any) => ({ id: o.id, name: o.name })) ?? []}
+                    selectedValue={(formData as any).ownerId}
+                    onChange={(val) => {
+                      setFormData((p) => ({ ...(p as any), ownerId: val }));
+                    }}
+                    placeholder="-- Select Owner (optional) --"
+                    searchPlaceholder="Search owners by name"
+                    query={ownerQuery}
+                    onQueryChange={setOwnerQuery}
+                    loading={ownersLoading}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  {(formData as any).ownerId ? (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-neutral-200">
+                          Selected owner: {owners?.find((o: any) => o.id === (formData as any).ownerId)?.name ?? "Unknown"}
+                        </p>
+                        <Link href={`/owner/lists/${(formData as any).ownerId}`} className="text-yellow-400 text-sm underline">
+                          View Owner
+                        </Link>
+                      </div>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setFormData((p) => ({ ...(p as any), ownerId: undefined }))}
+                          className="text-sm text-red-400"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-neutral-400">No owner selected. Choose an owner from the dropdown above.</p>
+                  )}
+                </div>
               </div>
+            ) : null}
 
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Owner Name
-                </label>
-                <input
-                  type="text"
-                  name="ownerName"
-                  placeholder="Full Legal Name"
-                  value={formData.ownerName}
-                  onChange={handleInputChange}
-                  className="dream-text-input"
-                />
+            {formData.accessType === "broker" ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
+                    Partner Name / Source
+                  </label>
+                  <SearchableDropdown
+                    options={filteredBrokers?.map((b: any) => ({ id: b.id, name: b.name })) ?? []}
+                    selectedValue={(formData as any).sourcePartnerId}
+                    onChange={(val) => {
+                      setFormData((p) => ({ ...(p as any), sourcePartnerId: val }));
+                    }}
+                    placeholder="-- Select Broker (optional) --"
+                    searchPlaceholder="Search brokers by name"
+                    query={brokerQuery}
+                    onQueryChange={setBrokerQuery}
+                    loading={brokersLoading}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  {(formData as any).sourcePartnerId ? (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-neutral-200">
+                          Selected broker: {brokers?.find((b: any) => b.id === (formData as any).sourcePartnerId)?.name ?? "Unknown"}
+                        </p>
+                        <Link href={`/broker/lists/${(formData as any).sourcePartnerId}`} className="text-yellow-400 text-sm underline">
+                          View Broker
+                        </Link>
+                      </div>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setFormData((p) => ({ ...(p as any), sourcePartnerId: undefined }))}
+                          className="text-sm text-red-400"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-neutral-400">No broker selected. Choose a broker from the dropdown above.</p>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  name="ownerPhone"
-                  placeholder="+91 XXXXX XXXXX"
-                  value={formData.ownerPhone}
-                  onChange={handleInputChange}
-                  className="dream-text-input"
-                />
-              </div>
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                name="ownerEmail"
-                placeholder="owner@example.com"
-                value={formData.ownerEmail}
-                onChange={handleInputChange}
-                className="dream-text-input"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 06: SOURCE & PARTNERS */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
-              06
-            </div>
-            <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
-              Source Partner
-            </h2>
-          </div>
-
-          <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Partner Name / Source
-              </label>
-              <input
-                type="text"
-                name="sourcePartner"
-                placeholder="e.g. Internal Marketing, Partner XYZ"
-                value={formData.sourcePartner}
-                onChange={handleInputChange}
-                className="dream-text-input mb-2"
-              />
-
-              <input
-                type="text"
-                placeholder="Search brokers by name"
-                value={brokerQuery}
-                onChange={(e) => setBrokerQuery(e.target.value)}
-                className="dream-text-input mb-2"
-              />
-
-              <select
-                name="sourcePartnerId"
-                onChange={(e) => {
-                  const selected = e.target.value;
-                  const text = e.target.options[e.target.selectedIndex].text;
-                  setFormData((p) => ({ ...(p as any), sourcePartner: text, sourcePartnerId: selected }));
-                }}
-                className="dream-select"
-              >
-                <option value="">-- Select Broker (optional) --</option>
-                {filteredBrokers?.map((b: any) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            ) : null}
           </div>
         </div>
 
@@ -992,8 +1159,8 @@ export default function PropertyListingForm() {
                       {key === "powerBackup"
                         ? "Power Backup"
                         : key === "swimmingPool"
-                        ? "Swimming Pool"
-                        : key}
+                          ? "Swimming Pool"
+                          : key}
                     </span>
                   </label>
                 ))}

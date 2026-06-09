@@ -18,12 +18,26 @@ export const propertyCreateSchema = z
     superBuiltUpArea: z.preprocess((v) => (v === "" || v === undefined ? undefined : Number(v)), z.number().optional()),
 
     askingPrice: z.preprocess((v) => (v === "" || v === undefined ? undefined : BigInt(v as any)), z.any().optional()),
-    availabilityStatus: z.enum(["AVAILABLE", "RENTED", "SOLD", "UPCOMING"]).optional(),
+    availabilityStatus: z
+      .enum(["AVAILABLE", "RENTED", "SOLD", "UPCOMING"])
+      .nullable()
+      .optional()
+      .transform((v) => (v === null || v === undefined ? undefined : v)),
     availabilityDate: z.string().optional().or(z.literal("")),
 
-    // Relations
-    ownerId: z.string().uuid().optional(),
-    sourcePartnerId: z.string().uuid().optional(),
+    // Relations - accept both uuid strings and null/empty
+    ownerId: z
+      .string()
+      .uuid()
+      .nullable()
+      .optional()
+      .transform((v) => (v === null || v === undefined ? undefined : v)),
+    sourcePartnerId: z
+      .string()
+      .uuid()
+      .nullable()
+      .optional()
+      .transform((v) => (v === null || v === undefined ? undefined : v)),
 
     // Misc
     accessType: z.string().optional().or(z.literal("")),
@@ -39,6 +53,25 @@ export const propertyCreateSchema = z
         powerBackup: z.boolean().optional(),
         swimmingPool: z.boolean().optional(),
         clubhouse: z.boolean().optional(),
+      })
+      .optional(),
+
+    // Media (uploaded to R2)
+    images: z
+      .array(
+        z.object({
+          objectKey: z.string().min(1),
+          caption: z.string().optional(),
+          publicUrl: z.string().nullable().optional(),
+          order: z.number().int().optional(),
+        })
+      )
+      .optional(),
+    brochure: z
+      .object({
+        objectKey: z.string().min(1),
+        publicUrl: z.string().nullable().optional(),
+        fileName: z.string().min(1),
       })
       .optional(),
   })

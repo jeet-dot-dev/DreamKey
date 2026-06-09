@@ -223,6 +223,7 @@ model PropertyListing {
   
   amenities PropertyAmenities?
   images PropertyImage[]
+  societyBrochure PropertyBrochure?
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -261,6 +262,7 @@ model PropertyImage {
   
   url String
   publicId String? // For Cloudinary or similar
+  caption String? @db.Text // Image description: "Bedroom", "Living Room", etc.
   order Int @default(0)
   
   // Relation to PropertyListing
@@ -279,8 +281,9 @@ model PropertyBrochure {
   publicId String? // For Cloudinary or similar
   fileName String
   
-  // Could be related to PropertyListing if needed
-  propertyListingId String? // Optional for now
+  // One brochure per property listing
+  propertyListingId String @unique
+  propertyListing PropertyListing @relation(fields: [propertyListingId], references: [id], onDelete: Cascade)
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
