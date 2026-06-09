@@ -1,31 +1,58 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, Loader2, Upload, X } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { AlertCircle, CheckCircle2, Loader2, Upload, X, Pencil, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utlis";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { saveListing } from "@/lib/fileStorage";
 import { useOwners } from "@/hooks/useOwners";
 import { useBrokers } from "@/hooks/useBrokers";
+import { useProperty } from "@/hooks/useProperties";
 import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
-
-const IMAGE_MAX_SIZE = 2 * 1024 * 1024; // 2 MB
-const BROCHURE_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+const IMAGE_MAX_SIZE = 2 * 1024 * 1024;
+const BROCHURE_MAX_SIZE = 5 * 1024 * 1024;
 
 type UploadStatus = "pending" | "uploading" | "uploaded" | "failed";
 
+// ── Existing image from DB (read-only until deleted) ──────────────────────────
+type ExistingImage = {
+  kind: "existing";
+  id: string;           // DB PropertyImage.id
+  url: string;
+  publicId?: string;
+  caption?: string;
+  order: number;
+  markedForDeletion: boolean;
+};
+
+// ── New image being uploaded ──────────────────────────────────────────────────
+type NewImage = {
+  kind: "new";
+  tempId: string;
+  file: File;
+  preview: string;
+  caption: string;
+  objectKey?: string;
+  publicUrl?: string | null;
+  uploadStatus: UploadStatus;
+  error?: string;
+};
+
+type ImageSlot = ExistingImage | NewImage;
+
+type BrochureSlot =
+  | { kind: "existing"; id: string; url: string; publicId?: string; fileName: string; markedForDeletion: boolean }
+  | { kind: "new"; file: File; preview: string; objectKey?: string; publicUrl?: string | null; uploadStatus: UploadStatus; error?: string }
+  | null;
+
 type FormData = {
-  // Basic Information
   propertyType: string;
   buildingName: string;
   location: string;
   pinCode: string;
-
-  // Technical Specifications
   floorNumber: string;
   totalFloors: string;
   bedrooms: string;
@@ -33,370 +60,313 @@ type FormData = {
   balconies: string;
   carpetArea: string;
   superBuiltUpArea: string;
-
-  // Pricing & Status
   askingPrice: string;
   availabilityStatus: string;
   availabilityDate: string;
-
-  // Owner/Source
   ownerId?: string;
-  accessType: string;
-  sourcePartner: string;
   sourcePartnerId?: string;
+  accessType: string;
   remarks: string;
-
-  // Society Insights
   builderName: string;
   yearBuilt: string;
   totalUnits: string;
   reraNumber: string;
   amenities: {
-    parking: boolean;
-    gym: boolean;
-    lift: boolean;
-    security: boolean;
-    powerBackup: boolean;
-    swimmingPool: boolean;
-    clubhouse: boolean;
+    parking: boolean; gym: boolean; lift: boolean; security: boolean;
+    powerBackup: boolean; swimmingPool: boolean; clubhouse: boolean;
   };
-
-  // Media
-  images: File[];
-  societyBrochure: File | null;
 };
 
-export default function PropertyListingForm() {
+const emptyForm: FormData = {
+  propertyType: "", buildingName: "", location: "", pinCode: "",
+  floorNumber: "", totalFloors: "", bedrooms: "", bathrooms: "",
+  balconies: "", carpetArea: "", superBuiltUpArea: "", askingPrice: "",
+  availabilityStatus: "", availabilityDate: "", ownerId: undefined,
+  sourcePartnerId: undefined, accessType: "", remarks: "", builderName: "",
+  yearBuilt: "", totalUnits: "", reraNumber: "",
+  amenities: { parking: false, gym: false, lift: false, security: false, powerBackup: false, swimmingPool: false, clubhouse: false },
+};
 
-  type ImagePreview = {
-    id: string;
-    file: File;
-    preview: string;
-    caption: string;
-    objectKey?: string;
-    publicUrl?: string | null;
-    uploadStatus: UploadStatus;
-    error?: string;
-  };
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-  type BrochurePreview = {
-    file: File;
-    preview: string;
-    objectKey?: string;
-    publicUrl?: string | null;
-    uploadStatus: UploadStatus;
-    error?: string;
-  };
+const getAuthToken = () => (typeof window !== "undefined" ? localStorage.getItem("token") : null);
 
-  const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [formData, setFormData] = useState<FormData>({
-    propertyType: "",
-    buildingName: "",
-    location: "",
-    pinCode: "",
-    floorNumber: "",
-    totalFloors: "",
-    bedrooms: "",
-    bathrooms: "",
-    balconies: "",
-    carpetArea: "",
-    superBuiltUpArea: "",
-    askingPrice: "",
-    availabilityStatus: "",
-    availabilityDate: "",
-    ownerId: undefined,
-    accessType: "",
-    sourcePartner: "",
-    sourcePartnerId: undefined,
-    remarks: "",
-    builderName: "",
-    yearBuilt: "",
-    totalUnits: "",
-    reraNumber: "",
-    amenities: {
-      parking: false,
-      gym: false,
-      lift: false,
-      security: false,
-      powerBackup: false,
-      swimmingPool: false,
-      clubhouse: false,
-    },
-    images: [],
-    societyBrochure: null,
+async function requestPresignedUrl(file: File, folder: string) {
+  const token = getAuthToken();
+  const res = await fetch(`${apiBaseUrl}/api/v1/upload/presign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
+    body: JSON.stringify({ fileName: file.name, contentType: file.type, folder }),
   });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.message || "Failed to get presigned URL");
+  return json.data as { objectKey: string; uploadUrl: string; publicUrl: string | null };
+}
 
-  const [imagePreviews, setImagePreviews] = useState<ImagePreview[]>([]);
-  const [brochuirePreview, setBrochurePreview] = useState<BrochurePreview | null>(null);
+async function uploadToR2(uploadUrl: string, file: File) {
+  const r = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+  if (!r.ok) throw new Error("R2 upload failed");
+}
+
+async function deleteFromR2(objectKey: string) {
+  const token = getAuthToken();
+  await fetch(`${apiBaseUrl}/api/v1/upload/object`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
+    body: JSON.stringify({ objectKey }),
+  });
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
+
+export default function PropertyListingForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const propertyId = searchParams.get("id") ?? undefined;
+  const isEditMode = !!propertyId;
+
+  const { data: existingProperty, loading: loadingExisting } = useProperty(propertyId);
+
+  const [formData, setFormData] = useState<FormData>(emptyForm);
+  const [imageSlots, setImageSlots] = useState<ImageSlot[]>([]);
+  const [brochureSlot, setBrochureSlot] = useState<BrochureSlot>(null);
   const [dragActive, setDragActive] = useState(false);
-  // Owner/Broker selection state
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [ownerQuery, setOwnerQuery] = useState("");
   const [brokerQuery, setBrokerQuery] = useState("");
   const { data: owners = [], loading: ownersLoading } = useOwners({ name: ownerQuery });
   const { brokers = [], isLoading: brokersLoading } = useBrokers();
 
-  const filteredOwners = (ownerQuery && owners) ? owners.filter((o: any) => o.name?.toLowerCase().includes(ownerQuery.toLowerCase())) : (owners || []);
-  const filteredBrokers = (brokerQuery && brokers) ? brokers.filter((b: any) => b.name?.toLowerCase().includes(brokerQuery.toLowerCase())) : (brokers || []);
+  const filteredOwners = owners ? owners.filter((o: any) => !ownerQuery || o.name?.toLowerCase().includes(ownerQuery.toLowerCase())) : [];
+  const filteredBrokers = brokers ? brokers.filter((b: any) => !brokerQuery || b.name?.toLowerCase().includes(brokerQuery.toLowerCase())) : [];
 
-  const parseErrorMessage = async (response: Response, fallback: string) => {
-    const text = await response.text();
-    if (!text) return fallback;
-
-    try {
-      const json = JSON.parse(text);
-      return json?.message || json?.error || fallback;
-    } catch {
-      return text;
-    }
-  };
-
-  const getAuthToken = () => localStorage.getItem("token");
-
-  const requestPresignedUrl = async (file: File, folder: string) => {
-    const token = getAuthToken();
-    const res = await fetch(`${apiBaseUrl}/api/v1/upload/presign`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: token ? `Bearer ${token}` : "",
+  // ── Populate form when editing ───────────────────────────────────────────
+  useEffect(() => {
+    if (!existingProperty) return;
+    const p = existingProperty;
+    setFormData({
+      propertyType: p.propertyType ?? "",
+      buildingName: p.buildingName ?? "",
+      location: p.location ?? "",
+      pinCode: p.pinCode ?? "",
+      floorNumber: p.floorNumber ?? "",
+      totalFloors: p.totalFloors != null ? String(p.totalFloors) : "",
+      bedrooms: p.bedrooms != null ? String(p.bedrooms) : "",
+      bathrooms: p.bathrooms != null ? String(p.bathrooms) : "",
+      balconies: p.balconies != null ? String(p.balconies) : "",
+      carpetArea: p.carpetArea != null ? String(p.carpetArea) : "",
+      superBuiltUpArea: p.superBuiltUpArea != null ? String(p.superBuiltUpArea) : "",
+      askingPrice: p.askingPrice != null ? String(p.askingPrice) : "",
+      availabilityStatus: p.availabilityStatus ?? "",
+      availabilityDate: p.availabilityDate ? p.availabilityDate.split("T")[0] : "",
+      ownerId: p.ownerId ?? undefined,
+      sourcePartnerId: p.sourcePartnerId ?? undefined,
+      accessType: p.ownerId ? "direct" : p.sourcePartnerId ? "broker" : "",
+      remarks: p.remarks ?? "",
+      builderName: p.builderName ?? "",
+      yearBuilt: p.yearBuilt != null ? String(p.yearBuilt) : "",
+      totalUnits: p.totalUnits != null ? String(p.totalUnits) : "",
+      reraNumber: p.reraNumber ?? "",
+      amenities: {
+        parking: p.amenities?.parking ?? false,
+        gym: p.amenities?.gym ?? false,
+        lift: p.amenities?.lift ?? false,
+        security: p.amenities?.security ?? false,
+        powerBackup: p.amenities?.powerBackup ?? false,
+        swimmingPool: p.amenities?.swimmingPool ?? false,
+        clubhouse: p.amenities?.clubhouse ?? false,
       },
-      body: JSON.stringify({ fileName: file.name, contentType: file.type, folder }),
     });
 
-    const text = await res.text();
-    const json = text ? JSON.parse(text) : {};
-    if (!res.ok) throw new Error(json?.message || "Failed to get presigned URL");
-    return json.data as { objectKey: string; uploadUrl: string; publicUrl: string | null };
-  };
+    // Populate existing images
+    const existing: ExistingImage[] = (p.images ?? []).map((img) => ({
+      kind: "existing",
+      id: img.id,
+      url: img.url,
+      publicId: img.publicId ?? undefined,
+      caption: img.caption ?? undefined,
+      order: img.order,
+      markedForDeletion: false,
+    }));
+    setImageSlots(existing);
 
-  const uploadToR2 = async (uploadUrl: string, file: File) => {
-    const r = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-    if (!r.ok) {
-      throw new Error(await parseErrorMessage(r, "R2 upload failed"));
+    // Populate existing brochure
+    if (p.societyBrochure) {
+      setBrochureSlot({
+        kind: "existing",
+        id: p.societyBrochure.id,
+        url: p.societyBrochure.url,
+        publicId: p.societyBrochure.publicId ?? undefined,
+        fileName: p.societyBrochure.fileName,
+        markedForDeletion: false,
+      });
     }
-  };
+  }, [existingProperty]);
 
-  const deleteUploadedObject = async (objectKey: string) => {
-    const token = getAuthToken();
-    const res = await fetch(`${apiBaseUrl}/api/v1/upload/object`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: token ? `Bearer ${token}` : "",
-      },
-      body: JSON.stringify({ objectKey }),
-    });
-
-    if (!res.ok) {
-      throw new Error(await parseErrorMessage(res, "Failed to delete uploaded image"));
-    }
-  };
-
-  // Input change handler
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
+  // ── Input handlers ────────────────────────────────────────────────────────
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => {
-      let next: any = { ...prev, [name]: value };
+      const next: any = { ...prev, [name]: value };
       if (name === "accessType") {
-        if (value === "direct") {
-          // clear broker/source partner fields
-          next.sourcePartner = "";
-          next.sourcePartnerId = undefined;
-        } else if (value === "broker") {
-          // clear owner selection
-          next.ownerId = undefined;
-        }
+        if (value === "direct") { next.sourcePartnerId = undefined; }
+        if (value === "broker") { next.ownerId = undefined; }
       }
       return next;
     });
   };
 
-  // Amenities change handler
-  const handleAmenityChange = (key: keyof typeof formData.amenities) => {
-    setFormData((prev) => ({
-      ...prev,
-      amenities: {
-        ...prev.amenities,
-        [key]: !prev.amenities[key],
-      },
-    }));
+  const handleAmenityChange = (key: keyof FormData["amenities"]) => {
+    setFormData((prev) => ({ ...prev, amenities: { ...prev.amenities, [key]: !prev.amenities[key] } }));
   };
 
-  // Handle image uploads
+  // ── Image handling ────────────────────────────────────────────────────────
+  const totalImageCount = imageSlots.filter((s) => !(s.kind === "existing" && s.markedForDeletion)).length;
+
   const handleImageUpload = (files: FileList | null) => {
     if (!files) return;
-    const allowed = Array.from(files).slice(0, 20 - imagePreviews.length);
-
+    const allowed = Array.from(files).slice(0, 20 - totalImageCount);
     allowed.forEach(async (file) => {
       if (!file.type.startsWith("image/")) return;
-      if (file.size > IMAGE_MAX_SIZE) {
-        toast.error("Image too large", { description: `${file.name} exceeds 2 MB.` });
-        return;
-      }
-
-      const id = (crypto as any).randomUUID ? (crypto as any).randomUUID() : String(Date.now()) + Math.random();
+      if (file.size > IMAGE_MAX_SIZE) { toast.error(`${file.name} exceeds 2 MB.`); return; }
+      const tempId = crypto.randomUUID?.() ?? String(Date.now() + Math.random());
       const preview = URL.createObjectURL(file);
-      const uploadToastId = toast.loading(`Uploading ${file.name}`);
-
-      setImagePreviews((prev) => [
-        ...prev,
-        { id, file, preview, caption: "", uploadStatus: "uploading" },
-      ]);
-
+      const toastId = toast.loading(`Uploading ${file.name}`);
+      setImageSlots((prev) => [...prev, { kind: "new", tempId, file, preview, caption: "", uploadStatus: "uploading" }]);
       try {
         const presign = await requestPresignedUrl(file, "properties/images");
         await uploadToR2(presign.uploadUrl, file);
-        setImagePreviews((prev) => prev.map((p) => p.id === id ? { ...p, uploadStatus: "uploaded", objectKey: presign.objectKey, publicUrl: presign.publicUrl ?? undefined } : p));
-        toast.dismiss(uploadToastId);
-        toast.success(`Uploaded ${file.name}`, {
-          description: "The image is ready to be saved with the listing.",
-        });
+        setImageSlots((prev) => prev.map((s) =>
+          s.kind === "new" && s.tempId === tempId
+            ? { ...s, uploadStatus: "uploaded", objectKey: presign.objectKey, publicUrl: presign.publicUrl }
+            : s
+        ));
+        toast.dismiss(toastId);
+        toast.success(`Uploaded ${file.name}`);
       } catch (err: any) {
-        const message = err?.message ?? String(err);
-        setImagePreviews((prev) => prev.map((p) => p.id === id ? { ...p, uploadStatus: "failed", error: message } : p));
-        toast.dismiss(uploadToastId);
-        toast.error(`Failed to upload ${file.name}`, {
-          description: message,
-        });
+        setImageSlots((prev) => prev.map((s) =>
+          s.kind === "new" && s.tempId === tempId ? { ...s, uploadStatus: "failed", error: err?.message } : s
+        ));
+        toast.dismiss(toastId);
+        toast.error(`Failed to upload ${file.name}`);
       }
     });
   };
 
-  // Handle brochure upload
-  const handleBrochureUpload = async (files: FileList | null) => {
-    if (!files || !files[0]) return;
-    const file = files[0];
-    if (file.type !== "application/pdf") {
-      toast.error("Only PDF allowed");
-      return;
-    }
-    if (file.size > BROCHURE_MAX_SIZE) {
-      toast.error("Brochure too large", { description: "PDF must be <= 5 MB" });
-      return;
-    }
-
-    const preview = URL.createObjectURL(file);
-    setBrochurePreview({ file, preview, uploadStatus: "uploading" });
-    const uploadToastId = toast.loading(`Uploading ${file.name}`);
-
-    try {
-      const presign = await requestPresignedUrl(file, "properties/brochures");
-      await uploadToR2(presign.uploadUrl, file);
-      setBrochurePreview({ file, preview, uploadStatus: "uploaded", objectKey: presign.objectKey, publicUrl: presign.publicUrl ?? undefined });
-      toast.dismiss(uploadToastId);
-      toast.success(`Uploaded ${file.name}`, {
-        description: "The brochure is ready to be saved with the listing.",
-      });
-    } catch (err: any) {
-      const message = err?.message ?? String(err);
-      setBrochurePreview({ file, preview, uploadStatus: "failed", error: message });
-      toast.dismiss(uploadToastId);
-      toast.error(`Failed to upload ${file.name}`, {
-        description: message,
-      });
-    }
+  const removeExistingImage = (id: string) => {
+    // Mark for deletion — actual delete happens on save
+    setImageSlots((prev) => prev.map((s) =>
+      s.kind === "existing" && s.id === id ? { ...s, markedForDeletion: true } : s
+    ));
+    toast.info("Image will be removed when you save.");
   };
 
-  // Remove image by id
-  const removeImage = async (id: string) => {
-    const image = imagePreviews.find((item) => item.id === id);
-    if (!image) return;
-
-    if (image.uploadStatus === "uploaded" && image.objectKey) {
-      const deleteToastId = toast.loading(`Removing ${image.file.name}`);
-      try {
-        await deleteUploadedObject(image.objectKey);
-        URL.revokeObjectURL(image.preview);
-        setImagePreviews((prev) => prev.filter((p) => p.id !== id));
-        toast.dismiss(deleteToastId);
-        toast.success(`Removed ${image.file.name}`, {
-          description: "The image was deleted from R2.",
-        });
-      } catch (error) {
-        toast.dismiss(deleteToastId);
-        toast.error(`Failed to remove ${image.file.name}`, {
-          description: error instanceof Error ? error.message : "Could not delete the uploaded image.",
-        });
-      }
-      return;
-    }
-
-    URL.revokeObjectURL(image.preview);
-    setImagePreviews((prev) => prev.filter((p) => p.id !== id));
-    toast.info(`Removed ${image.file.name}`, {
-      description: "This image was only removed from the form.",
-    });
+  const undoRemoveExistingImage = (id: string) => {
+    setImageSlots((prev) => prev.map((s) =>
+      s.kind === "existing" && s.id === id ? { ...s, markedForDeletion: false } : s
+    ));
   };
 
-  // Update image caption by id
+  const removeNewImage = async (tempId: string) => {
+    const slot = imageSlots.find((s) => s.kind === "new" && s.tempId === tempId) as NewImage | undefined;
+    if (!slot) return;
+    if (slot.uploadStatus === "uploaded" && slot.objectKey) {
+      try { await deleteFromR2(slot.objectKey); } catch {}
+    }
+    URL.revokeObjectURL(slot.preview);
+    setImageSlots((prev) => prev.filter((s) => !(s.kind === "new" && s.tempId === tempId)));
+  };
+
   const updateImageCaption = (id: string, caption: string) => {
-    setImagePreviews((prev) => prev.map((p) => p.id === id ? { ...p, caption } : p));
+    setImageSlots((prev) => prev.map((s) => {
+      if (s.kind === "existing" && s.id === id) return { ...s, caption };
+      if (s.kind === "new" && s.tempId === id) return { ...s, caption };
+      return s;
+    }));
   };
 
-  // Handle drag events
   const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
+    e.preventDefault(); e.stopPropagation();
+    setDragActive(e.type === "dragenter" || e.type === "dragover");
   };
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     setDragActive(false);
+    if (e.dataTransfer.files?.[0]) handleImageUpload(e.dataTransfer.files);
+  };
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleImageUpload(e.dataTransfer.files);
+  // ── Brochure handling ─────────────────────────────────────────────────────
+  const handleBrochureUpload = async (files: FileList | null) => {
+    if (!files?.[0]) return;
+    const file = files[0];
+    if (file.type !== "application/pdf") { toast.error("Only PDF allowed"); return; }
+    if (file.size > BROCHURE_MAX_SIZE) { toast.error("PDF must be ≤ 5 MB"); return; }
+    const preview = URL.createObjectURL(file);
+    setBrochureSlot({ kind: "new", file, preview, uploadStatus: "uploading" });
+    const toastId = toast.loading(`Uploading ${file.name}`);
+    try {
+      const presign = await requestPresignedUrl(file, "properties/brochures");
+      await uploadToR2(presign.uploadUrl, file);
+      setBrochureSlot({ kind: "new", file, preview, uploadStatus: "uploaded", objectKey: presign.objectKey, publicUrl: presign.publicUrl });
+      toast.dismiss(toastId); toast.success(`Uploaded ${file.name}`);
+    } catch (err: any) {
+      setBrochureSlot({ kind: "new", file, preview, uploadStatus: "failed", error: err?.message });
+      toast.dismiss(toastId); toast.error(`Failed to upload ${file.name}`);
     }
   };
 
-  // Form submission handler
+  const markBrochureForDeletion = () => {
+    if (brochureSlot?.kind === "existing") {
+      setBrochureSlot({ ...brochureSlot, markedForDeletion: true });
+      toast.info("Brochure will be removed when you save.");
+    }
+  };
+
+  const undoBrochureDeletion = () => {
+    if (brochureSlot?.kind === "existing") {
+      setBrochureSlot({ ...brochureSlot, markedForDeletion: false });
+    }
+  };
+
+  const removeNewBrochure = async () => {
+    if (brochureSlot?.kind !== "new") return;
+    if (brochureSlot.uploadStatus === "uploaded" && brochureSlot.objectKey) {
+      try { await deleteFromR2(brochureSlot.objectKey); } catch {}
+    }
+    if (brochureSlot.preview) URL.revokeObjectURL(brochureSlot.preview);
+    setBrochureSlot(null);
+  };
+
+  // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Validation: require basic fields and either owner or sourcePartner selection
     if (!formData.propertyType || !formData.buildingName || !formData.location || !formData.pinCode) {
-      toast.error("Validation Error", {
-        description: "Please fill required fields (type, building, location, pin code).",
-      });
+      toast.error("Fill required fields: type, building, location, pin code.");
       return;
     }
-
-    // prefer ownerId/sourcePartnerId provided via formData.ownerId/sourcePartnerId
-    const ownerId = (formData as any).ownerId ?? null;
-    const sourcePartnerId = (formData as any).sourcePartnerId ?? null;
-
+    const ownerId = formData.ownerId ?? null;
+    const sourcePartnerId = formData.sourcePartnerId ?? null;
     if (!ownerId && !sourcePartnerId) {
-      toast.error("Relation required", { description: "Select an owner or a source partner (broker)." });
-      return;
+      toast.error("Select an owner or a source broker."); return;
     }
 
-    // Ensure all selected media are uploaded
-    if (imagePreviews.some((p) => p.uploadStatus !== "uploaded")) {
-      toast.error("Please wait for all images to finish uploading or remove failed ones.");
-      return;
+    // Check uploads in progress
+    const newImages = imageSlots.filter((s): s is NewImage => s.kind === "new");
+    if (newImages.some((s) => s.uploadStatus === "uploading")) {
+      toast.error("Wait for all images to finish uploading."); return;
     }
-    if (brochuirePreview && brochuirePreview.uploadStatus !== "uploaded") {
-      toast.error("Please wait for brochure upload to finish or remove it.");
-      return;
+    if (brochureSlot?.kind === "new" && brochureSlot.uploadStatus === "uploading") {
+      toast.error("Wait for brochure to finish uploading."); return;
     }
 
     let loadingToast: string | number | undefined;
-
     try {
       setIsSubmitting(true);
-      loadingToast = toast.loading("Saving property listing...");
+      loadingToast = toast.loading(isEditMode ? "Saving changes..." : "Creating listing...");
 
-      // Build payload
       const payload: any = {
-        propertyType: formData.propertyType ? formData.propertyType.toUpperCase() : undefined,
+        propertyType: formData.propertyType?.toUpperCase() || undefined,
         buildingName: formData.buildingName,
         location: formData.location,
         pinCode: formData.pinCode,
@@ -410,806 +380,522 @@ export default function PropertyListingForm() {
         askingPrice: formData.askingPrice || undefined,
         availabilityStatus: formData.availabilityStatus || undefined,
         availabilityDate: formData.availabilityDate || undefined,
-        ownerId,
-        sourcePartnerId,
+        ownerId, sourcePartnerId,
         accessType: formData.accessType || undefined,
         remarks: formData.remarks || undefined,
+        builderName: formData.builderName || undefined,
+        yearBuilt: formData.yearBuilt || undefined,
+        totalUnits: formData.totalUnits || undefined,
+        reraNumber: formData.reraNumber || undefined,
         amenities: formData.amenities,
       };
 
-      // Attach uploaded media keys
-      const uploadedImages = imagePreviews.filter((p) => p.uploadStatus === "uploaded" && p.objectKey).map((p, idx) => ({ objectKey: p.objectKey, caption: p.caption || undefined, publicUrl: p.publicUrl, order: idx }));
-        if (uploadedImages.length) payload.images = uploadedImages;
+      // New images to add
+      const uploadedNew = newImages.filter((s) => s.uploadStatus === "uploaded" && s.objectKey);
+      if (uploadedNew.length > 0) {
+        payload.images = uploadedNew.map((s, idx) => ({
+          objectKey: s.objectKey, caption: s.caption || undefined, publicUrl: s.publicUrl, order: idx,
+        }));
+      }
 
-        if (brochuirePreview && brochuirePreview.uploadStatus === "uploaded" && brochuirePreview.objectKey) {
-          payload.brochure = { objectKey: brochuirePreview.objectKey, publicUrl: brochuirePreview.publicUrl, fileName: brochuirePreview.file.name };
+      // Edit-mode: IDs of existing images marked for deletion
+      if (isEditMode) {
+        const toDelete = imageSlots.filter((s): s is ExistingImage => s.kind === "existing" && s.markedForDeletion).map((s) => s.id);
+        if (toDelete.length > 0) payload.deletedImageIds = toDelete;
+        if (brochureSlot?.kind === "existing" && brochureSlot.markedForDeletion) {
+          payload.deleteBrochure = true;
         }
+      }
+
+      // New brochure
+      if (brochureSlot?.kind === "new" && brochureSlot.uploadStatus === "uploaded" && brochureSlot.objectKey) {
+        payload.brochure = { objectKey: brochureSlot.objectKey, publicUrl: brochureSlot.publicUrl, fileName: brochureSlot.file.name };
+      }
+
       const token = localStorage.getItem("token");
-      const res = await fetch(`${apiBaseUrl}/api/v1/property`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
-        },
+      const url = isEditMode ? `${apiBaseUrl}/api/v1/property/${propertyId}` : `${apiBaseUrl}/api/v1/property`;
+      const method = isEditMode ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
         body: JSON.stringify(payload),
       });
 
-      const respText = await res.text();
-      const respJson = respText ? JSON.parse(respText) : {};
-      if (!res.ok) throw new Error(respJson?.message || `${res.status} ${res.statusText}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.message || `${res.status} ${res.statusText}`);
 
-      if (loadingToast) toast.dismiss(loadingToast);
-      toast.success("Property listing created successfully!", { description: respJson?.message ?? "Created" });
-
-      // Reset form (keep images handling local but clear previews)
-      setFormData({
-        propertyType: "",
-        buildingName: "",
-        location: "",
-        pinCode: "",
-        floorNumber: "",
-        totalFloors: "",
-        bedrooms: "",
-        bathrooms: "",
-        balconies: "",
-        carpetArea: "",
-        superBuiltUpArea: "",
-        askingPrice: "",
-        availabilityStatus: "",
-        availabilityDate: "",
-        ownerId: undefined,
-        accessType: "",
-        sourcePartner: "",
-        remarks: "",
-        builderName: "",
-        yearBuilt: "",
-        totalUnits: "",
-        reraNumber: "",
-        amenities: {
-          parking: false,
-          gym: false,
-          lift: false,
-          security: false,
-          powerBackup: false,
-          swimmingPool: false,
-          clubhouse: false,
-        },
-        images: [],
-        societyBrochure: null,
-      });
-      setImagePreviews([]);
-      setBrochurePreview(null);
-      setTimeout(() => router.push("/stock/overview"), 1200);
+      toast.dismiss(loadingToast);
+      toast.success(isEditMode ? "Property updated!" : "Property created!", { description: json?.message });
+      setTimeout(() => router.push(isEditMode ? `/stock/lists/${propertyId}` : "/stock/overview"), 1000);
     } catch (error) {
-      console.error("Error saving listing:", error);
       if (loadingToast) toast.dismiss(loadingToast);
-      toast.error("Failed to save listing", {
-        description:
-          error instanceof Error ? error.message : "An unexpected error occurred.",
-      });
+      toast.error("Failed to save", { description: error instanceof Error ? error.message : "Unexpected error." });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // ── Loading state for edit mode ───────────────────────────────────────────
+  if (isEditMode && loadingExisting) {
+    return (
+      <div className="w-full max-w-4xl mx-auto px-4 py-8 bg-black min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-yellow-400 mx-auto mb-3" />
+          <p className="text-neutral-400 text-sm">Loading property data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-8 bg-black min-h-screen">
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* SECTION 01: BASIC INFORMATION */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
-              01
-            </div>
-            <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
-              Basic Information
-            </h2>
-          </div>
+      {/* Page header */}
+      <div className="flex items-center gap-3 mb-8">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="text-neutral-400 hover:text-white transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-white">
+            {isEditMode ? (
+              <span className="flex items-center gap-2">
+                <Pencil className="h-5 w-5 text-yellow-400" />
+                Edit Property
+              </span>
+            ) : (
+              "Add New Property"
+            )}
+          </h1>
+          {isEditMode && (
+            <p className="text-xs text-neutral-500 mt-0.5">
+              ID: {propertyId}
+            </p>
+          )}
+        </div>
+      </div>
 
-          <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
-            {/* Property Type */}
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* ── SECTION 01: BASIC INFO ─────────────────────────────────────── */}
+        <Section num="01" title="Basic Information">
+          <div>
+            <Label>Property Type</Label>
+            <select name="propertyType" value={formData.propertyType} onChange={handleInputChange} className="dream-select">
+              <option value="">Select Property Type</option>
+              <option value="FLAT">Flat</option>
+              <option value="LAND">Land</option>
+              <option value="WAREHOUSE">Warehouse</option>
+              <option value="COMMERCIAL">Commercial</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+          <div>
+            <Label>Building / Society Name</Label>
+            <input type="text" name="buildingName" placeholder="e.g. Skyline Residences" value={formData.buildingName} onChange={handleInputChange} className="dream-text-input" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Property Type
-              </label>
-              <select
-                name="propertyType"
-                value={formData.propertyType}
-                onChange={handleInputChange}
-                className="dream-select"
-              >
-                <option value="">Select Property Type</option>
-                <option value="flat">Flat</option>
-                <option value="land">Land</option>
-                <option value="warehouse">Warehouse</option>
-                <option value="commercial">Commercial</option>
+              <Label>Location / Area</Label>
+              <input type="text" name="location" placeholder="Enter Area or Locality" value={formData.location} onChange={handleInputChange} className="dream-text-input" />
+            </div>
+            <div>
+              <Label>Pin Code</Label>
+              <input type="text" name="pinCode" placeholder="e.g. 400001" value={formData.pinCode} onChange={handleInputChange} className="dream-text-input" />
+            </div>
+          </div>
+        </Section>
+
+        {/* ── SECTION 02: TECHNICAL SPECS ───────────────────────────────── */}
+        <Section num="02" title="Technical Specifications">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: "Floor", name: "floorNumber" },
+              { label: "Total Floors", name: "totalFloors" },
+              { label: "Bedrooms", name: "bedrooms" },
+              { label: "Bathrooms", name: "bathrooms" },
+            ].map(({ label, name }) => (
+              <div key={name}>
+                <Label>{label}</Label>
+                <input type="number" name={name} placeholder="0" value={(formData as any)[name]} onChange={handleInputChange} className="dream-input" />
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <Label>Balconies</Label>
+              <input type="number" name="balconies" placeholder="0" value={formData.balconies} onChange={handleInputChange} className="dream-input" />
+            </div>
+            <div>
+              <Label>Carpet Area (sq.ft)</Label>
+              <input type="number" name="carpetArea" placeholder="e.g. 1250" value={formData.carpetArea} onChange={handleInputChange} className="dream-input" />
+            </div>
+            <div>
+              <Label>Super Built-Up (sq.ft)</Label>
+              <input type="number" name="superBuiltUpArea" placeholder="e.g. 1800" value={formData.superBuiltUpArea} onChange={handleInputChange} className="dream-input" />
+            </div>
+          </div>
+        </Section>
+
+        {/* ── SECTION 03: PRICING & STATUS ──────────────────────────────── */}
+        <Section num="03" title="Pricing & Status">
+          <div>
+            <Label>Asking Price / Rent</Label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-yellow-400">₹</span>
+              <input type="number" name="askingPrice" placeholder="0.00" value={formData.askingPrice} onChange={handleInputChange} className="dream-input pl-8" />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Availability Status</Label>
+              <select name="availabilityStatus" value={formData.availabilityStatus} onChange={handleInputChange} className="dream-select">
+                <option value="">Select Status</option>
+                <option value="AVAILABLE">Available</option>
+                <option value="RENTED">Rented</option>
+                <option value="SOLD">Sold</option>
+                <option value="UPCOMING">Upcoming</option>
               </select>
             </div>
-
-            {/* Building Name */}
             <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Building/Society Name
+              <Label>Availability Date</Label>
+              <input type="date" name="availabilityDate" value={formData.availabilityDate} onChange={handleInputChange} className="dream-input" />
+            </div>
+          </div>
+        </Section>
+
+        {/* ── SECTION 04: MEDIA ASSETS ──────────────────────────────────── */}
+        <Section num="04" title="Media Assets">
+          {/* Images */}
+          <div>
+            <p className="text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-4">
+              Property Images ({totalImageCount}/20)
+            </p>
+
+            {/* Upload zone */}
+            <div
+              onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
+              className={cn(
+                "border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer",
+                dragActive ? "border-yellow-400 bg-yellow-400/10" : "border-neutral-700 bg-neutral-800/20 hover:border-yellow-400/50"
+              )}
+            >
+              <input type="file" multiple accept="image/*" onChange={(e) => handleImageUpload(e.target.files)}
+                className="hidden" id="image-upload" disabled={totalImageCount >= 20} />
+              <label htmlFor="image-upload" className="flex flex-col items-center gap-2 cursor-pointer">
+                <Upload className="w-8 h-8 text-yellow-400" />
+                <p className="text-sm font-medium text-white">Drag & Drop or click to browse</p>
+                <p className="text-xs text-neutral-400">JPG, PNG — max 2 MB each</p>
               </label>
-              <input
-                type="text"
-                name="buildingName"
-                placeholder="e.g. Skyline Residences"
-                value={formData.buildingName}
-                onChange={handleInputChange}
-                className="dream-text-input"
-              />
             </div>
 
-            {/* Location & Pin Code */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Location / Area
-                </label>
-                <input
-                  type="text"
-                  name="location"
-                  placeholder="Enter Area or Locality"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  className="dream-text-input"
-                />
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Pin Code
-                </label>
-                <input
-                  type="text"
-                  name="pinCode"
-                  placeholder="e.g. 400001"
-                  value={formData.pinCode}
-                  onChange={handleInputChange}
-                  className="dream-text-input"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+            {/* Image grid */}
+            {imageSlots.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {imageSlots.map((slot) => {
+                  if (slot.kind === "existing") {
+                    const isDel = slot.markedForDeletion;
+                    return (
+                      <div key={slot.id} className={cn("relative group", isDel && "opacity-40")}>
+                        <div className="relative bg-neutral-800 rounded-lg overflow-hidden aspect-square">
+                          <img src={slot.url} alt={slot.caption || "Property"} className="w-full h-full object-cover" />
+                          {/* Overlay */}
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            {isDel ? (
+                              <button type="button" onClick={() => undoRemoveExistingImage(slot.id)}
+                                className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 rounded-lg text-xs font-medium text-black">
+                                Undo
+                              </button>
+                            ) : (
+                              <button type="button" onClick={() => removeExistingImage(slot.id)}
+                                className="p-2 bg-red-500 hover:bg-red-600 rounded-lg">
+                                <X className="w-4 h-4 text-white" />
+                              </button>
+                            )}
+                          </div>
+                          {/* Saved badge */}
+                          <div className="absolute top-2 left-2">
+                            <span className="text-xs bg-neutral-900/80 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                              {isDel ? "Will delete" : "Saved"}
+                            </span>
+                          </div>
+                        </div>
+                        <input type="text" placeholder="Image caption"
+                          value={slot.caption ?? ""}
+                          onChange={(e) => updateImageCaption(slot.id, e.target.value)}
+                          className="mt-2 w-full bg-neutral-800 border border-neutral-600 rounded-lg px-2 py-1 text-white placeholder-neutral-500 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-400/40 focus:border-yellow-400 transition-all" />
+                      </div>
+                    );
+                  }
 
-        {/* SECTION 02: TECHNICAL SPECIFICATIONS */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
-              02
-            </div>
-            <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
-              Technical Specifications
-            </h2>
-          </div>
-
-          <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
-            {/* Floor Details */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Floor
-                </label>
-                <input
-                  type="number"
-                  name="floorNumber"
-                  placeholder="0"
-                  value={formData.floorNumber}
-                  onChange={handleInputChange}
-                  className="dream-input"
-                />
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Total Floors
-                </label>
-                <input
-                  type="number"
-                  name="totalFloors"
-                  placeholder="0"
-                  value={formData.totalFloors}
-                  onChange={handleInputChange}
-                  className="dream-input"
-                />
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Bedrooms
-                </label>
-                <input
-                  type="number"
-                  name="bedrooms"
-                  placeholder="0"
-                  value={formData.bedrooms}
-                  onChange={handleInputChange}
-                  className="dream-input"
-                />
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Bathrooms
-                </label>
-                <input
-                  type="number"
-                  name="bathrooms"
-                  placeholder="0"
-                  value={formData.bathrooms}
-                  onChange={handleInputChange}
-                  className="dream-input"
-                />
-              </div>
-            </div>
-
-            {/* Balconies */}
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Balconies
-              </label>
-              <input
-                type="number"
-                name="balconies"
-                placeholder="0"
-                value={formData.balconies}
-                onChange={handleInputChange}
-                className="dream-input"
-              />
-            </div>
-
-            {/* Area Details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Carpet Area (SQ FT)
-                </label>
-                <input
-                  type="number"
-                  name="carpetArea"
-                  placeholder="e.g. 1250"
-                  value={formData.carpetArea}
-                  onChange={handleInputChange}
-                  className="dream-input"
-                />
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Super Built-up Area (SQ FT)
-                </label>
-                <input
-                  type="number"
-                  name="superBuiltUpArea"
-                  placeholder="e.g. 1800"
-                  value={formData.superBuiltUpArea}
-                  onChange={handleInputChange}
-                  className="dream-input"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 03: PRICING & STATUS */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
-              03
-            </div>
-            <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
-              Pricing & Status
-            </h2>
-          </div>
-
-          <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
-            {/* Asking Price */}
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Asking Price / Rent
-              </label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-yellow-400">₹</span>
-                <input
-                  type="number"
-                  name="askingPrice"
-                  placeholder="0.00"
-                  value={formData.askingPrice}
-                  onChange={handleInputChange}
-                  className="dream-input pl-8"
-                />
-              </div>
-            </div>
-
-            {/* Availability Status */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Availability Status
-                </label>
-                <select
-                  name="availabilityStatus"
-                  value={formData.availabilityStatus}
-                  onChange={handleInputChange}
-                  className="dream-select"
-                >
-                  <option value="">Select Status</option>
-                  <option value="AVAILABLE">Available</option>
-                  <option value="RENTED">Rented</option>
-                  <option value="SOLD">Sold</option>
-                  <option value="UPCOMING">Upcoming</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Availability Date
-                </label>
-                <input
-                  type="date"
-                  name="availabilityDate"
-                  value={formData.availabilityDate}
-                  onChange={handleInputChange}
-                  className="dream-input"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 04: MEDIA ASSETS */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
-              04
-            </div>
-            <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
-              Media Assets
-            </h2>
-          </div>
-
-          <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-6">
-            {/* Property Images */}
-            <div>
-              <p className="text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-4">
-                Property Images ({imagePreviews.length}/20)
-              </p>
-
-              {/* Upload Area */}
-              <div
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
-                className={cn(
-                  "border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer",
-                  dragActive
-                    ? "border-yellow-400 bg-yellow-400/10"
-                    : "border-neutral-700 bg-neutral-800/20 hover:border-yellow-400/50"
-                )}
-              >
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(e) => handleImageUpload(e.target.files)}
-                  className="hidden"
-                  id="image-upload"
-                  disabled={imagePreviews.length >= 20}
-                />
-                <label
-                  htmlFor="image-upload"
-                  className="flex flex-col items-center gap-2 cursor-pointer"
-                >
-                  <Upload className="w-8 h-8 text-yellow-400" />
-                  <p className="text-sm font-medium text-white">
-                    Drag & Drop up to 20 Photos
-                  </p>
-                  <p className="text-xs text-neutral-400">
-                    Or click to browse from your device. JPG, PNG formats only.
-                  </p>
-                </label>
-              </div>
-
-              {/* Image Previews */}
-              {imagePreviews.length > 0 && (
-                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {imagePreviews.map((img) => (
-                    <div key={img.id} className="relative group">
+                  // New image slot
+                  return (
+                    <div key={slot.tempId} className="relative group">
                       <div className="relative bg-neutral-800 rounded-lg overflow-hidden aspect-square">
-                        <img
-                          src={img.preview}
-                          alt={`Property`}
-                          className="w-full h-full object-cover"
-                        />
+                        <img src={slot.preview} alt="Preview" className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <button
-                            type="button"
-                            onClick={() => removeImage(img.id)}
-                            className="p-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
-                          >
+                          <button type="button" onClick={() => removeNewImage(slot.tempId)}
+                            className="p-2 bg-red-500 hover:bg-red-600 rounded-lg">
                             <X className="w-4 h-4 text-white" />
                           </button>
                         </div>
                       </div>
                       <div className="mt-2 flex items-center gap-2 text-xs">
-                        {img.uploadStatus === "uploading" && (
+                        {slot.uploadStatus === "uploading" && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-yellow-400/15 px-2 py-1 text-yellow-300">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Uploading
+                            <Loader2 className="h-3 w-3 animate-spin" /> Uploading
                           </span>
                         )}
-                        {img.uploadStatus === "uploaded" && (
+                        {slot.uploadStatus === "uploaded" && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-emerald-300">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Ready
+                            <CheckCircle2 className="h-3 w-3" /> Ready
                           </span>
                         )}
-                        {img.uploadStatus === "failed" && (
+                        {slot.uploadStatus === "failed" && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-1 text-red-300">
-                            <AlertCircle className="h-3 w-3" />
-                            Failed
+                            <AlertCircle className="h-3 w-3" /> Failed
                           </span>
                         )}
                       </div>
-                      <input
-                        type="text"
-                        placeholder="Image caption"
-                        value={img.caption}
-                        onChange={(e) => updateImageCaption(img.id, e.target.value)}
-                        className="mt-2 w-full bg-neutral-800 border border-neutral-600 rounded-lg px-2 py-1 text-white placeholder-neutral-500 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-400/40 focus:border-yellow-400 transition-all"
-                      />
+                      <input type="text" placeholder="Image caption"
+                        value={slot.caption}
+                        onChange={(e) => updateImageCaption(slot.tempId, e.target.value)}
+                        className="mt-2 w-full bg-neutral-800 border border-neutral-600 rounded-lg px-2 py-1 text-white placeholder-neutral-500 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-400/40 focus:border-yellow-400 transition-all" />
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-            {/* Society Brochure */}
-            <div>
-              <p className="text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-4">
-                Society Brochure (PDF)
-              </p>
-              {brochuirePreview ? (
-                <div className="bg-neutral-800 rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
-                        <span className="text-red-500 text-lg font-bold">PDF</span>
-                      </div>
-                      <div className="text-sm text-white">{brochuirePreview.file.name}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setBrochurePreview(null)}
-                      className="p-2 hover:bg-neutral-700 rounded-lg transition-colors"
-                    >
-                      <X className="w-4 h-4 text-white" />
+          {/* Brochure */}
+          <div>
+            <p className="text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-4">Society Brochure (PDF)</p>
+            {brochureSlot === null && (
+              <div className="border-2 border-dashed border-neutral-700 rounded-xl p-6 text-center">
+                <input type="file" accept="application/pdf" onChange={(e) => handleBrochureUpload(e.target.files)} className="hidden" id="brochure-upload" />
+                <label htmlFor="brochure-upload" className="cursor-pointer">
+                  <Upload className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
+                  <p className="text-sm text-white">Upload Brochure PDF</p>
+                </label>
+              </div>
+            )}
+
+            {brochureSlot?.kind === "existing" && (
+              <div className={cn("bg-neutral-800 rounded-lg p-4 flex items-center justify-between gap-3", brochureSlot.markedForDeletion && "opacity-50")}>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-red-400 text-xs font-bold">PDF</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm text-white truncate">{brochureSlot.fileName}</p>
+                    <p className="text-xs text-neutral-500">{brochureSlot.markedForDeletion ? "Will be deleted on save" : "Saved brochure"}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  {brochureSlot.markedForDeletion ? (
+                    <button type="button" onClick={undoBrochureDeletion}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30">
+                      Undo
                     </button>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    {brochuirePreview.uploadStatus === "uploading" && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-yellow-400/15 px-2 py-1 text-yellow-300">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Uploading
-                      </span>
-                    )}
-                    {brochuirePreview.uploadStatus === "uploaded" && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-emerald-300">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Ready
-                      </span>
-                    )}
-                    {brochuirePreview.uploadStatus === "failed" && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-1 text-red-300">
-                        <AlertCircle className="h-3 w-3" />
-                        Failed
-                      </span>
-                    )}
-                  </div>
+                  ) : (
+                    <>
+                      <a href={brochureSlot.url} target="_blank" rel="noopener noreferrer"
+                        className="text-xs px-3 py-1.5 rounded-lg bg-neutral-700 text-neutral-300 hover:bg-neutral-600">
+                        View
+                      </a>
+                      <button type="button" onClick={markBrochureForDeletion}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30">
+                        Delete
+                      </button>
+                      <label htmlFor="brochure-replace" className="text-xs px-3 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30 cursor-pointer">
+                        Replace
+                      </label>
+                      <input id="brochure-replace" type="file" accept="application/pdf" className="hidden"
+                        onChange={(e) => { markBrochureForDeletion(); handleBrochureUpload(e.target.files); }} />
+                    </>
+                  )}
                 </div>
-              ) : (
-                <div className="border-2 border-dashed border-neutral-700 rounded-xl p-6 text-center">
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={(e) => handleBrochureUpload(e.target.files)}
-                    className="hidden"
-                    id="brochure-upload"
-                  />
-                  <label htmlFor="brochure-upload" className="cursor-pointer">
-                    <Upload className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
-                    <p className="text-sm text-white">Upload Brochure PDF</p>
-                  </label>
+              </div>
+            )}
+
+            {brochureSlot?.kind === "new" && (
+              <div className="bg-neutral-800 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
+                      <span className="text-red-400 text-xs font-bold">PDF</span>
+                    </div>
+                    <p className="text-sm text-white truncate">{brochureSlot.file.name}</p>
+                  </div>
+                  <button type="button" onClick={removeNewBrochure} className="p-2 hover:bg-neutral-700 rounded-lg">
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  {brochureSlot.uploadStatus === "uploading" && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-yellow-400/15 px-2 py-1 text-yellow-300">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Uploading
+                    </span>
+                  )}
+                  {brochureSlot.uploadStatus === "uploaded" && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-emerald-300">
+                      <CheckCircle2 className="h-3 w-3" /> Ready
+                    </span>
+                  )}
+                  {brochureSlot.uploadStatus === "failed" && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-1 text-red-300">
+                      <AlertCircle className="h-3 w-3" /> Failed
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </Section>
+
+        {/* ── SECTION 05: OWNER & ACCESS ────────────────────────────────── */}
+        <Section num="05" title="Owner & Access Details">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-3">Access Type</p>
+            <div className="flex gap-4">
+              {[{ value: "direct", label: "Direct Owner" }, { value: "broker", label: "+1 Broker" }].map((opt) => (
+                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="accessType" value={opt.value} checked={formData.accessType === opt.value} onChange={handleInputChange} className="w-4 h-4 accent-yellow-400 cursor-pointer" />
+                  <span className="text-sm text-neutral-300">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {formData.accessType === "direct" && (
+            <div>
+              <Label>Select Owner</Label>
+              <SearchableDropdown
+                options={filteredOwners?.map((o: any) => ({ id: o.id, name: o.name })) ?? []}
+                selectedValue={formData.ownerId}
+                onChange={(val) => setFormData((p) => ({ ...p, ownerId: val }))}
+                placeholder="-- Select Owner --"
+                searchPlaceholder="Search owners by name"
+                query={ownerQuery}
+                onQueryChange={setOwnerQuery}
+                loading={ownersLoading}
+              />
+              {formData.ownerId && (
+                <div className="mt-2 flex items-center justify-between">
+                  <p className="text-sm text-neutral-300">
+                    Selected: <span className="text-white font-medium">{owners?.find((o: any) => o.id === formData.ownerId)?.name ?? "Unknown"}</span>
+                  </p>
+                  <button type="button" onClick={() => setFormData((p) => ({ ...p, ownerId: undefined }))} className="text-xs text-red-400 hover:text-red-300">Clear</button>
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* SECTION 05: OWNER & ACCESS DETAILS */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
-              05
-            </div>
-            <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
-              Owner & Access Details
-            </h2>
-          </div>
-
-          <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
-            {/* Access Type */}
+          {formData.accessType === "broker" && (
             <div>
-              <p className="text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-3">
-                Access Type
-              </p>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="accessType"
-                    value="direct"
-                    checked={formData.accessType === "direct"}
-                    onChange={handleInputChange}
-                    className="w-4 h-4 accent-yellow-400 cursor-pointer"
-                  />
-                  <span className="text-sm text-neutral-300">Direct Owner</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="accessType"
-                    value="broker"
-                    checked={formData.accessType === "broker"}
-                    onChange={handleInputChange}
-                    className="w-4 h-4 accent-yellow-400 cursor-pointer"
-                  />
-                  <span className="text-sm text-neutral-300">+1 Broker</span>
-                </label>
-              </div>
-            </div>
-
-            {formData.accessType === "direct" ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                    Select Owner
-                  </label>
-                  <SearchableDropdown
-                    options={filteredOwners?.map((o: any) => ({ id: o.id, name: o.name })) ?? []}
-                    selectedValue={(formData as any).ownerId}
-                    onChange={(val) => {
-                      setFormData((p) => ({ ...(p as any), ownerId: val }));
-                    }}
-                    placeholder="-- Select Owner (optional) --"
-                    searchPlaceholder="Search owners by name"
-                    query={ownerQuery}
-                    onQueryChange={setOwnerQuery}
-                    loading={ownersLoading}
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  {(formData as any).ownerId ? (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-neutral-200">
-                          Selected owner: {owners?.find((o: any) => o.id === (formData as any).ownerId)?.name ?? "Unknown"}
-                        </p>
-                        <Link href={`/owner/lists/${(formData as any).ownerId}`} className="text-yellow-400 text-sm underline">
-                          View Owner
-                        </Link>
-                      </div>
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => setFormData((p) => ({ ...(p as any), ownerId: undefined }))}
-                          className="text-sm text-red-400"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-neutral-400">No owner selected. Choose an owner from the dropdown above.</p>
-                  )}
-                </div>
-              </div>
-            ) : null}
-
-            {formData.accessType === "broker" ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                    Partner Name / Source
-                  </label>
-                  <SearchableDropdown
-                    options={filteredBrokers?.map((b: any) => ({ id: b.id, name: b.name })) ?? []}
-                    selectedValue={(formData as any).sourcePartnerId}
-                    onChange={(val) => {
-                      setFormData((p) => ({ ...(p as any), sourcePartnerId: val }));
-                    }}
-                    placeholder="-- Select Broker (optional) --"
-                    searchPlaceholder="Search brokers by name"
-                    query={brokerQuery}
-                    onQueryChange={setBrokerQuery}
-                    loading={brokersLoading}
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  {(formData as any).sourcePartnerId ? (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-neutral-200">
-                          Selected broker: {brokers?.find((b: any) => b.id === (formData as any).sourcePartnerId)?.name ?? "Unknown"}
-                        </p>
-                        <Link href={`/broker/lists/${(formData as any).sourcePartnerId}`} className="text-yellow-400 text-sm underline">
-                          View Broker
-                        </Link>
-                      </div>
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => setFormData((p) => ({ ...(p as any), sourcePartnerId: undefined }))}
-                          className="text-sm text-red-400"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-neutral-400">No broker selected. Choose a broker from the dropdown above.</p>
-                  )}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* SECTION 07: SOCIETY INSIGHTS & EXTRAS */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
-              07
-            </div>
-            <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
-              Society Insights & Extras
-            </h2>
-          </div>
-
-          <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
-            {/* Builder & Year Info */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Builder Name
-                </label>
-                <input
-                  type="text"
-                  name="builderName"
-                  placeholder="e.g. Prestige Group"
-                  value={formData.builderName}
-                  onChange={handleInputChange}
-                  className="dream-text-input"
-                />
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Year Built
-                </label>
-                <input
-                  type="number"
-                  name="yearBuilt"
-                  placeholder="2020"
-                  value={formData.yearBuilt}
-                  onChange={handleInputChange}
-                  className="dream-input"
-                />
-              </div>
-            </div>
-
-            {/* Units & RERA */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Total Units
-                </label>
-                <input
-                  type="number"
-                  name="totalUnits"
-                  placeholder="120"
-                  value={formData.totalUnits}
-                  onChange={handleInputChange}
-                  className="dream-input"
-                />
-              </div>
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  RERA Registration Number
-                </label>
-                <input
-                  type="text"
-                  name="reraNumber"
-                  placeholder="e.g. RERA/MH/123456"
-                  value={formData.reraNumber}
-                  onChange={handleInputChange}
-                  className="dream-text-input"
-                />
-              </div>
-            </div>
-
-            {/* Amenities */}
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-3">
-                Key Amenities
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {Object.entries(formData.amenities).map(([key, value]) => (
-                  <label
-                    key={key}
-                    className="flex items-center gap-2 p-3 bg-neutral-800/30 border border-neutral-700 rounded-lg cursor-pointer hover:border-yellow-400/50 transition-colors"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={value}
-                      onChange={() =>
-                        handleAmenityChange(key as keyof typeof formData.amenities)
-                      }
-                      className="w-4 h-4 accent-yellow-400 cursor-pointer"
-                    />
-                    <span className="text-xs sm:text-sm text-neutral-300 capitalize">
-                      {key === "powerBackup"
-                        ? "Power Backup"
-                        : key === "swimmingPool"
-                          ? "Swimming Pool"
-                          : key}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Remarks */}
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Additional Remarks
-              </label>
-              <textarea
-                name="remarks"
-                placeholder="Mention architectural highlights, neighborhood proximity, historical value, or any other additional information..."
-                value={formData.remarks}
-                onChange={handleInputChange}
-                rows={4}
-                className="dream-textarea"
+              <Label>Select Broker / Source Partner</Label>
+              <SearchableDropdown
+                options={filteredBrokers?.map((b: any) => ({ id: b.id, name: b.name })) ?? []}
+                selectedValue={formData.sourcePartnerId}
+                onChange={(val) => setFormData((p) => ({ ...p, sourcePartnerId: val }))}
+                placeholder="-- Select Broker --"
+                searchPlaceholder="Search brokers by name"
+                query={brokerQuery}
+                onQueryChange={setBrokerQuery}
+                loading={brokersLoading}
               />
+              {formData.sourcePartnerId && (
+                <div className="mt-2 flex items-center justify-between">
+                  <p className="text-sm text-neutral-300">
+                    Selected: <span className="text-white font-medium">{brokers?.find((b: any) => b.id === formData.sourcePartnerId)?.name ?? "Unknown"}</span>
+                  </p>
+                  <button type="button" onClick={() => setFormData((p) => ({ ...p, sourcePartnerId: undefined }))} className="text-xs text-red-400 hover:text-red-300">Clear</button>
+                </div>
+              )}
+            </div>
+          )}
+        </Section>
+
+        {/* ── SECTION 06: SOCIETY INSIGHTS ──────────────────────────────── */}
+        <Section num="06" title="Society Insights & Extras">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Builder Name</Label>
+              <input type="text" name="builderName" placeholder="e.g. Prestige Group" value={formData.builderName} onChange={handleInputChange} className="dream-text-input" />
+            </div>
+            <div>
+              <Label>Year Built</Label>
+              <input type="number" name="yearBuilt" placeholder="2020" value={formData.yearBuilt} onChange={handleInputChange} className="dream-input" />
+            </div>
+            <div>
+              <Label>Total Units</Label>
+              <input type="number" name="totalUnits" placeholder="120" value={formData.totalUnits} onChange={handleInputChange} className="dream-input" />
+            </div>
+            <div>
+              <Label>RERA Number</Label>
+              <input type="text" name="reraNumber" placeholder="RERA/MH/123456" value={formData.reraNumber} onChange={handleInputChange} className="dream-text-input" />
             </div>
           </div>
-        </div>
 
-        {/* Form Actions */}
+          <div>
+            <Label>Key Amenities</Label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-2">
+              {Object.entries(formData.amenities).map(([key, value]) => (
+                <label key={key} className="flex items-center gap-2 p-3 bg-neutral-800/30 border border-neutral-700 rounded-lg cursor-pointer hover:border-yellow-400/50 transition-colors">
+                  <input type="checkbox" checked={value} onChange={() => handleAmenityChange(key as keyof FormData["amenities"])} className="w-4 h-4 accent-yellow-400 cursor-pointer" />
+                  <span className="text-xs sm:text-sm text-neutral-300 capitalize">
+                    {key === "powerBackup" ? "Power Backup" : key === "swimmingPool" ? "Swimming Pool" : key}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label>Additional Remarks</Label>
+            <textarea name="remarks" placeholder="Architectural highlights, neighborhood info..." value={formData.remarks} onChange={handleInputChange} rows={4} className="dream-textarea" />
+          </div>
+        </Section>
+
+        {/* ── Actions ───────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row gap-3 pt-4">
-          <button
-            type="button"
-            onClick={() => router.push("/stock/overview")}
-            className="flex-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-semibold py-3 px-4 rounded-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isSubmitting}
-          >
+          <button type="button" onClick={() => router.back()} disabled={isSubmitting}
+            className="flex-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-semibold py-3 px-4 rounded-lg transition-all cursor-pointer disabled:opacity-50">
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-3 px-4 rounded-lg transition-all hover:shadow-lg hover:shadow-yellow-400/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
+          <button type="submit" disabled={isSubmitting}
+            className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-3 px-4 rounded-lg transition-all hover:shadow-lg hover:shadow-yellow-400/20 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
             {isSubmitting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                Saving...
-              </>
+              <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> {isEditMode ? "Saving..." : "Creating..."}</>
             ) : (
-              "Save Property Listing"
+              isEditMode ? "Save Changes" : "Create Property Listing"
             )}
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+// ── Tiny helper components ────────────────────────────────────────────────────
+
+function Label({ children }: { children: React.ReactNode }) {
+  return <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">{children}</label>;
+}
+
+function Section({ num, title, children }: { num: string; title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">{num}</div>
+        <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">{title}</h2>
+      </div>
+      <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
+        {children}
+      </div>
     </div>
   );
 }

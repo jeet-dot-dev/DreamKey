@@ -10,7 +10,7 @@ const accountId = process.env.R2_ACCOUNT_ID;
 const accessKeyId = process.env.R2_ACCESS_KEY_ID;
 const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
 const bucketName = process.env.R2_BUCKET_NAME;
-const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL;
+const publicBaseUrl = process.env.R2_PUBLIC_URL;
 
 if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
 	throw new Error("Missing R2 environment variables");

@@ -6,10 +6,10 @@ import morgan from "morgan";
 import path from "path";
 import { fileURLToPath } from "url";
 import v1Routes from "./routes/index.js";
-import type { Request, Response,NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 
 const app = express();
-const port = process.env.PORT || 8080;
+const port = process.env.PORT ?? 8080;
 
 // Get directory path (for ES modules)
 const __filename = fileURLToPath(import.meta.url);
@@ -40,7 +40,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../../uploads")));
 app.use("/api/v1", v1Routes);
 
 //Error handler
-app.use((err:Error, req:Request, res:Response, next:NextFunction) => {
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err);
   res.status(500).json({ message: "Internal Server Error" });
 });
