@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -258,6 +258,10 @@ export default function PropertyDetailPage() {
   const id = params?.id as string;
 
   const { data: property, loading, error } = useProperty(id);
+
+  useEffect(() => {
+    console.log('🏠 Property Data:', property);
+  }, [property]);
 
   if (loading) {
     return (
