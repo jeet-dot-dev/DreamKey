@@ -534,3 +534,79 @@ export const updateProperty = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const deleteProperty = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user?.userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { id } = req.params as { id: string };
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Property ID is required" });
+    }
+
+    const property = await prisma.propertyListing.findUnique({
+      where: { id },
+      include: {
+        images: true,
+        societyBrochure: true,
+      },
+    });
+
+    if (!property) {
+      return res.status(404).json({ success: false, message: "Property not found" });
+    }
+
+    const r2Keys: string[] = [];
+    if (property.images && property.images.length > 0) {
+      for (const img of property.images) {
+        if (img.publicId) {
+          r2Keys.push(img.publicId);
+        }
+      }
+    }
+    if (property.societyBrochure?.publicId) {
+      r2Keys.push(property.societyBrochure.publicId);
+    }
+
+    for (const key of r2Keys) {
+      try {
+        await deleteR2Object(key);
+      } catch (r2Error) {
+        console.error(`Failed to delete key ${key} from R2:`, r2Error);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to delete associated files from R2 storage. Deletion aborted.",
+        });
+      }
+    }
+
+    await prisma.$transaction([
+      prisma.propertyAmenities.deleteMany({
+        where: { propertyListingId: id },
+      }),
+      prisma.propertyImage.deleteMany({
+        where: { propertyListingId: id },
+      }),
+      prisma.propertyBrochure.deleteMany({
+        where: { propertyListingId: id },
+      }),
+      prisma.propertyListing.delete({
+        where: { id },
+      }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting property:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete property",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+

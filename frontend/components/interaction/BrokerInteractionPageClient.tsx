@@ -13,7 +13,7 @@ export default function BrokerInteractionPageClient() {
   const search = useSearchParams();
   const brokerId = search?.get("id") ?? undefined;
 
-  const { data, loading, error } = useBrokerInteractions(brokerId ?? undefined);
+  const { data, loading, error, refetch } = useBrokerInteractions(brokerId ?? undefined);
 
   useEffect(() => {
     if (error) {
@@ -69,7 +69,7 @@ export default function BrokerInteractionPageClient() {
           </div>
         )}
 
-        <InteractionList brokerId={brokerId} interactions={data} loading={loading} />
+        <InteractionList brokerId={brokerId} interactions={data} loading={loading} refetch={refetch} />
       </div>
     </div>
   );

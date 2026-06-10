@@ -13,7 +13,7 @@ export default function OwnerInteractionPageClient() {
   const search = useSearchParams();
   const ownerId = search?.get("id") ?? undefined;
 
-  const { data, loading, error } = useOwnerInteractions(ownerId ?? undefined);
+  const { data, loading, error, refetch } = useOwnerInteractions(ownerId ?? undefined);
 
   useEffect(() => {
     if (error) {
@@ -69,7 +69,7 @@ export default function OwnerInteractionPageClient() {
           </div>
         )}
 
-        <OwnerInteractionList ownerId={ownerId} interactions={data} loading={loading} />
+        <OwnerInteractionList ownerId={ownerId} interactions={data} loading={loading} refetch={refetch} />
       </div>
     </div>
   );

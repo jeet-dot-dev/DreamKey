@@ -18,5 +18,12 @@ router.use("/owner/interaction", ownerInteractionRoutes);
 router.use("/owner", ownerRoutes);
 router.use("/property", propertyRoutes);
 
+// Support both singular and plural forms (for frontend compatibility and direct API requirements)
+router.use("/owners", ownerRoutes);
+router.use("/owner-interactions", ownerInteractionRoutes);
+router.use("/brokers", brokerRoutes);
+router.use("/broker-interactions", brokerInteractionRoutes);
+router.use("/properties", propertyRoutes);
+
 
 export default router ;

@@ -4,13 +4,16 @@ import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarClock, Edit3, MessageSquarePlus, Search } from "lucide-react";
+import { CalendarClock, Edit3, MessageSquarePlus, Search, Trash2 } from "lucide-react";
 import { OwnerInteraction } from "@/hooks/useOwnerInteractions";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
+import { toast } from "sonner";
 
 type Props = {
   ownerId?: string;
   interactions?: OwnerInteraction[] | null;
   loading?: boolean;
+  refetch?: () => void;
 };
 
 const formatDate = (value?: string) => {
@@ -22,10 +25,56 @@ const formatDate = (value?: string) => {
   }
 };
 
-export default function OwnerInteractionList({ ownerId, interactions, loading }: Props) {
+export default function OwnerInteractionList({ ownerId, interactions, loading, refetch }: Props) {
   const router = useRouter();
   const [filterType, setFilterType] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
+  const [selectedInteraction, setSelectedInteraction] = useState<any>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteClick = (interaction: any) => {
+    setSelectedInteraction(interaction);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedInteraction) return;
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Unauthorized", {
+        description: "Please sign in again to continue.",
+      });
+      router.push("/auth");
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+      const response = await fetch(`${apiBaseUrl}/api/v1/owner/interaction/${selectedInteraction.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const resJson = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(resJson.message || "Failed to delete interaction");
+      }
+
+      toast.success("Interaction deleted successfully");
+      setShowDeleteModal(false);
+      setSelectedInteraction(null);
+      if (refetch) refetch();
+    } catch (err) {
+      toast.error("Failed to delete interaction");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     if (!interactions) return [];
@@ -130,14 +179,24 @@ export default function OwnerInteractionList({ ownerId, interactions, loading }:
                 </div>
               </div>
 
-              <Button
-                variant="ghost"
-                onClick={() => router.push(`/owner/interaction/add?id=${ownerId}&interactionId=${item.id}`)}
-                className="h-9 shrink-0 px-3 text-yellow-300 hover:bg-yellow-400/10 hover:text-yellow-200"
-              >
-                <Edit3 className="mr-2 h-4 w-4" />
-                Edit
-              </Button>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  onClick={() => router.push(`/owner/interaction/add?id=${ownerId}&interactionId=${item.id}`)}
+                  className="h-9 px-3 text-yellow-300 hover:bg-yellow-400/10 hover:text-yellow-200"
+                >
+                  <Edit3 className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => handleDeleteClick(item)}
+                  className="h-9 px-3 text-red-555 hover:bg-red-500/10 hover:text-red-400"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </Button>
+              </div>
             </div>
 
             <div className="mt-3 space-y-3">
@@ -215,20 +274,39 @@ export default function OwnerInteractionList({ ownerId, interactions, loading }:
                 </td>
                 <td className="p-4 align-top text-neutral-400">{formatDate(item.createdAt)}</td>
                 <td className="p-4 align-top">
-                  <Button
-                    variant="ghost"
-                    onClick={() => router.push(`/owner/interaction/add?id=${ownerId}&interactionId=${item.id}`)}
-                    className="h-9 px-3 text-yellow-300 hover:bg-yellow-400/10 hover:text-yellow-200"
-                  >
-                    <Edit3 className="mr-2 h-4 w-4" />
-                    Edit
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      onClick={() => router.push(`/owner/interaction/add?id=${ownerId}&interactionId=${item.id}`)}
+                      className="h-9 px-3 text-yellow-300 hover:bg-yellow-400/10 hover:text-yellow-200"
+                    >
+                      <Edit3 className="mr-2 h-4 w-4" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleDeleteClick(item)}
+                      className="h-9 px-3 text-red-555 hover:bg-red-500/10 hover:text-red-400"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => !isDeleting && setShowDeleteModal(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Interaction"
+        message="Are you sure you want to delete this interaction?"
+        loading={isDeleting}
+      />
     </div>
   );
 }

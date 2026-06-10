@@ -101,6 +101,8 @@ export interface PropertyFilters {
   dateTo?: string;
   page?: number;
   limit?: number;
+  ownerId?: string;
+  sourcePartnerId?: string;
 }
 
 interface UsePropertiesReturn {
@@ -132,6 +134,8 @@ export const useProperties = (filters?: PropertyFilters): UsePropertiesReturn =>
       if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom);
       if (filters?.dateTo) params.set('dateTo', filters.dateTo);
       if (filters?.page) params.set('page', String(filters.page));
+      if (filters?.ownerId) params.set('ownerId', filters.ownerId);
+      if (filters?.sourcePartnerId) params.set('sourcePartnerId', filters.sourcePartnerId);
       // Fetch a large limit so we can do client-side pagination (matches broker pattern)
       params.set('limit', String(filters?.limit ?? 200));
 
@@ -165,6 +169,8 @@ export const useProperties = (filters?: PropertyFilters): UsePropertiesReturn =>
     filters?.dateTo,
     filters?.page,
     filters?.limit,
+    filters?.ownerId,
+    filters?.sourcePartnerId,
   ]);
 
   useEffect(() => {

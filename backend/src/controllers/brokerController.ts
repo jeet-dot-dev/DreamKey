@@ -372,3 +372,46 @@ export const updateBroker = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
+export const deleteBroker = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user?.userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { id } = req.params as { id: string };
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Broker ID is required" });
+    }
+
+    const broker = await prisma.broker.findUnique({ where: { id } });
+    if (!broker) {
+      return res.status(404).json({ success: false, message: "Broker not found" });
+    }
+
+    await prisma.$transaction([
+      prisma.propertyListing.updateMany({
+        where: { sourcePartnerId: id },
+        data: { sourcePartnerId: null },
+      }),
+      prisma.brokerInteractionLog.deleteMany({
+        where: { brokerId: id },
+      }),
+      prisma.broker.delete({
+        where: { id },
+      }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting broker:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete broker",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};

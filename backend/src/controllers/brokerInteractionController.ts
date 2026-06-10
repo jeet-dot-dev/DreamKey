@@ -102,3 +102,24 @@ export const updateInteraction = async (req: AuthRequest, res: Response) => {
     return res.status(500).json({ message: "Failed to update interaction", error: error instanceof Error ? error.message : String(error) });
   }
 };
+
+export const deleteInteraction = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user?.userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { id } = req.params as { id?: string };
+    if (!id) return res.status(400).json({ success: false, message: "Interaction id is required" });
+
+    const existing = await prisma.brokerInteractionLog.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ success: false, message: "Interaction not found" });
+
+    await prisma.brokerInteractionLog.delete({ where: { id } });
+
+    return res.status(200).json({ success: true, message: "Deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting interaction:", error);
+    return res.status(500).json({ success: false, message: "Failed to delete interaction" });
+  }
+};

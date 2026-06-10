@@ -38,6 +38,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../../uploads")));
 
 //  Routes
 app.use("/api/v1", v1Routes);
+app.use("/api", v1Routes);
 
 //Error handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

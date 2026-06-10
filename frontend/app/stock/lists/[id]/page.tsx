@@ -29,10 +29,13 @@ import {
   Hash,
   Home,
   Warehouse,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProperty, type PropertyListing } from '@/hooks/useProperties';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { toast } from 'sonner';
 
 // ============================================================================
 // Utility
@@ -256,6 +259,43 @@ export default function PropertyDetailPage() {
   const id = params?.id as string;
 
   const { data: property, loading, error } = useProperty(id);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteConfirm = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Unauthorized", {
+        description: "Please sign in again to continue.",
+      });
+      router.push("/auth");
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+      const response = await fetch(`${apiBaseUrl}/api/v1/property/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const resJson = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(resJson.message || "Failed to delete property");
+      }
+
+      toast.success("Property and associated files deleted successfully");
+      router.push("/stock/lists");
+    } catch (err) {
+      toast.error("Failed to delete property");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     console.log('🏠 Property Data:', property);
@@ -319,13 +359,23 @@ export default function PropertyDetailPage() {
             Back to Properties
           </button>
 
-          <Button
-            onClick={() => router.push(`/stock/add-listing?id=${property.id}`)}
-            className="bg-yellow-400 hover:bg-yellow-300 text-black font-semibold flex items-center gap-2"
-          >
-            <Edit className="h-4 w-4" />
-            Edit
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => router.push(`/stock/add-listing?id=${property.id}`)}
+              className="bg-yellow-400 hover:bg-yellow-300 text-black font-semibold flex items-center gap-2"
+            >
+              <Edit className="h-4 w-4" />
+              Edit
+            </Button>
+            <Button
+              onClick={() => setShowDeleteModal(true)}
+              variant="destructive"
+              className="bg-red-600 hover:bg-red-500 text-white font-semibold flex items-center gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+          </div>
         </div>
 
         {/* Title Section */}
@@ -639,6 +689,44 @@ export default function PropertyDetailPage() {
 
 
       </div>
+
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => !isDeleting && setShowDeleteModal(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Property"
+        message={
+          <div className="space-y-3">
+            <p>
+              Are you sure you want to delete the property listing at <strong className="text-white">{property.buildingName}, {property.location}</strong>?
+            </p>
+            <div className="rounded-2xl bg-black/40 p-4 border border-neutral-800 text-xs text-neutral-400 space-y-1.5">
+              <div className="flex justify-between">
+                <span>Location:</span>
+                <span className="text-neutral-200">{property.location}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Type:</span>
+                <span className="text-neutral-200">{property.propertyType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Images to delete:</span>
+                <span className="text-neutral-200">{property.images?.length || 0} image(s)</span>
+              </div>
+              {property.societyBrochure && (
+                <div className="flex justify-between text-yellow-400 font-medium">
+                  <span>Brochure PDF:</span>
+                  <span>{property.societyBrochure.fileName}</span>
+                </div>
+              )}
+            </div>
+            <p className="text-red-400 font-semibold text-xs leading-normal">
+              Deleting this property will permanently remove the property record, amenities, images, brochure PDF, and associated files from Cloudflare R2. This action cannot be undone.
+            </p>
+          </div>
+        }
+        loading={isDeleting}
+      />
     </div>
   );
 }

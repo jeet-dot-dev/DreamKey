@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   Phone,
@@ -17,11 +17,23 @@ import {
   Loader,
   Archive,
   Heart,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBrokers, type Broker } from '@/hooks/useBrokers';
 import { toast } from 'sonner';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { useProperties } from '@/hooks/useProperties';
+import { Eye } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 // Constants
 const BROKERS_PER_PAGE = 10;
@@ -54,6 +66,36 @@ const getStatusColor = (status: Broker['status']): string => {
       return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
     default:
       return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+  }
+};
+
+const getStatusStyle = (status: string) => {
+  switch (status) {
+    case 'AVAILABLE':
+      return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-555/30';
+    case 'RENTED':
+      return 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30';
+    case 'SOLD':
+      return 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30';
+    case 'UPCOMING':
+      return 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/30';
+    default:
+      return 'bg-muted text-muted-foreground border-border';
+  }
+};
+
+const getTypeStyle = (type: string) => {
+  switch (type) {
+    case 'FLAT':
+      return 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30';
+    case 'LAND':
+      return 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30';
+    case 'WAREHOUSE':
+      return 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/30';
+    case 'COMMERCIAL':
+      return 'bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/30';
+    default:
+      return 'bg-muted text-muted-foreground border-border';
   }
 };
 
@@ -106,6 +148,43 @@ export default function BrokerDetailPage() {
   const params = useParams();
   const brokerId = params?.id as string;
   const { brokers, isLoading, error } = useBrokers();
+  const { properties, isLoading: propertiesLoading } = useProperties({ sourcePartnerId: brokerId });
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteConfirm = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Unauthorized", {
+        description: "Please sign in again to continue.",
+      });
+      router.push("/auth");
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/broker/${brokerId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const resJson = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(resJson.message || "Failed to delete broker");
+      }
+
+      toast.success("Broker deleted successfully");
+      router.push("/broker/lists");
+    } catch (err) {
+      toast.error("Failed to delete broker");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Find the specific broker
   const broker = useMemo(() => {
@@ -119,8 +198,8 @@ export default function BrokerDetailPage() {
       return typeof broker.areaOfOperation === 'string'
         ? JSON.parse(broker.areaOfOperation)
         : Array.isArray(broker.areaOfOperation)
-        ? broker.areaOfOperation
-        : [];
+          ? broker.areaOfOperation
+          : [];
     } catch {
       return [broker.areaOfOperation];
     }
@@ -132,8 +211,8 @@ export default function BrokerDetailPage() {
       return typeof broker.societyExpertise === 'string'
         ? JSON.parse(broker.societyExpertise)
         : Array.isArray(broker.societyExpertise)
-        ? broker.societyExpertise
-        : [];
+          ? broker.societyExpertise
+          : [];
     } catch {
       return [broker.societyExpertise];
     }
@@ -161,7 +240,7 @@ export default function BrokerDetailPage() {
 
   const handleFavorite = async () => {
     try {
-         toast.info("Coming Soon !")
+      toast.info("Coming Soon !")
       // Favorite logic will be implemented after route creation
       console.log('Toggle favorite for broker:', brokerId);
       // await toggleFavoriteBroker(brokerId);
@@ -228,7 +307,7 @@ export default function BrokerDetailPage() {
         </div>
 
         {/* Action Buttons - Mobile First */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-8 auto-rows-max">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 mb-8 auto-rows-max">
           <Button
             onClick={handleSeeInteractions}
             className="bg-yellow-500 cursor-pointer hover:bg-yellow-600 text-black font-semibold transition-all transform hover:scale-105 active:scale-95"
@@ -242,6 +321,14 @@ export default function BrokerDetailPage() {
           >
             <Edit className="h-4 w-4 mr-2" />
             <span className="text-sm">Edit</span>
+          </Button>
+          <Button
+            onClick={() => setShowDeleteModal(true)}
+            variant="destructive"
+            className="bg-red-600 text-white hover:bg-red-500 font-semibold transition-all transform hover:scale-105 active:scale-95"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            <span className="text-sm">Delete</span>
           </Button>
           <Button
             onClick={handleArchive}
@@ -373,6 +460,160 @@ export default function BrokerDetailPage() {
                 </p>
               </div>
             )}
+
+            {/* Sourced Properties Section */}
+            <div className="rounded-xl border bg-card p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  Sourced Properties
+                </h2>
+                {!propertiesLoading && (
+                  <span className="text-xs font-medium bg-muted px-3 py-1 rounded-full text-muted-foreground">
+                    {properties.length} {properties.length === 1 ? 'Property' : 'Properties'}
+                  </span>
+                )}
+              </div>
+
+              {propertiesLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : properties.length === 0 ? (
+                <div className="text-center py-8">
+                  <Building2 className="mx-auto h-10 w-10 text-muted-foreground/60 mb-3" />
+                  <p className="text-sm font-medium text-muted-foreground">No properties sourced</p>
+                  <p className="text-xs text-muted-foreground/65 mt-1">This broker hasn't sourced any properties yet.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block overflow-hidden rounded-lg border border-border">
+                    <Table>
+                      <TableHeader className="bg-muted/50">
+                        <TableRow className="border-border hover:bg-transparent">
+                          <TableHead className="text-muted-foreground font-semibold py-3 pl-4">Property</TableHead>
+                          <TableHead className="text-muted-foreground font-semibold py-3">Type</TableHead>
+                          <TableHead className="text-muted-foreground font-semibold py-3">Location</TableHead>
+                          <TableHead className="text-muted-foreground font-semibold py-3">Price</TableHead>
+                          <TableHead className="text-muted-foreground font-semibold py-3">Status</TableHead>
+                          <TableHead className="text-muted-foreground font-semibold py-3 text-right pr-4">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {properties.map((p) => (
+                          <TableRow key={p.id} className="border-border hover:bg-muted/20">
+                            <TableCell className="py-3 pl-4">
+                              <div className="flex items-center gap-3">
+                                {p.images?.[0]?.url ? (
+                                  <img
+                                    src={p.images[0].url}
+                                    alt={p.buildingName}
+                                    className="h-8 w-12 object-cover rounded-md border border-border flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className="h-8 w-12 rounded-md border border-border bg-muted/50 flex items-center justify-center flex-shrink-0">
+                                    <Building2 className="h-3 w-3 text-muted-foreground/60" />
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-semibold text-foreground text-sm">{p.buildingName}</p>
+                                  {p.floorNumber && (
+                                    <p className="text-xs text-muted-foreground">Floor {p.floorNumber}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3">
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-medium border ${getTypeStyle(p.propertyType)}`}>
+                                {p.propertyType}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 text-foreground text-sm">
+                              <div className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3 text-muted-foreground" />
+                                {p.location}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-3 font-semibold text-sm">
+                              {formatCurrency(p.askingPrice)}
+                            </TableCell>
+                            <TableCell className="py-3">
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-medium border ${getStatusStyle(p.availabilityStatus)}`}>
+                                {p.availabilityStatus}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 pr-4 text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => router.push(`/stock/lists/${p.id}`)}
+                                className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 px-3 rounded-md"
+                              >
+                                <Eye className="h-4 w-4 mr-1.5" />
+                                View
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Mobile Card View */}
+                  <div className="md:hidden space-y-3">
+                    {properties.map((p) => (
+                      <div key={p.id} className="rounded-lg border border-border bg-muted/10 p-4 space-y-3">
+                        <div className="flex gap-3">
+                          {p.images?.[0]?.url ? (
+                            <img
+                              src={p.images[0].url}
+                              alt={p.buildingName}
+                              className="h-12 w-16 object-cover rounded-md border border-border flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="h-12 w-16 rounded-md border border-border bg-muted/50 flex items-center justify-center flex-shrink-0">
+                              <Building2 className="h-4 w-4 text-muted-foreground/60" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-foreground text-sm truncate">{p.buildingName}</p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-3 w-3" />
+                              {p.location}
+                            </p>
+                            <p className="text-sm font-bold text-foreground mt-1">
+                              {formatCurrency(p.askingPrice)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex gap-1.5">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-medium border ${getTypeStyle(p.propertyType)}`}>
+                              {p.propertyType}
+                            </span>
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-medium border ${getStatusStyle(p.availabilityStatus)}`}>
+                              {p.availabilityStatus}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push(`/stock/lists/${p.id}`)}
+                            className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-8 px-2.5 rounded-md"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Right Column - Status & Metadata */}
@@ -421,6 +662,19 @@ export default function BrokerDetailPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => !isDeleting && setShowDeleteModal(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Broker"
+        message={
+          <>
+            Are you sure you want to delete broker <strong className="text-white">{broker.name}</strong>? This will permanently remove the broker record and all related interaction logs. Linked property listings will not be deleted, but will no longer point to this broker.
+          </>
+        }
+        loading={isDeleting}
+      />
     </div>
   );
 }

@@ -12,9 +12,12 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertCircle,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { toast } from 'sonner';
 import {
   Select,
   SelectContent,
@@ -305,6 +308,52 @@ export default function BrokerListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const BROKERS_PER_PAGE = 10;
 
+  const [selectedBroker, setSelectedBroker] = useState<any>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteClick = (broker: any) => {
+    setSelectedBroker(broker);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedBroker) return;
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Unauthorized", {
+        description: "Please sign in again to continue.",
+      });
+      router.push("/auth");
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/broker/${selectedBroker.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const resJson = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(resJson.message || "Failed to delete broker");
+      }
+
+      toast.success("Broker deleted successfully");
+      setShowDeleteModal(false);
+      setSelectedBroker(null);
+      void refetch();
+    } catch (err) {
+      toast.error("Failed to delete broker");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const [filters, setFilters] = useState<FilterState>({
     status: '',
     partner: '',
@@ -529,6 +578,9 @@ export default function BrokerListPage() {
                             <Button variant="ghost" size="sm" className='cursor-pointer'  onClick={() => handleInteraction(broker.id)} title="Add interaction">
                               <Phone className="h-4 w-4" />
                             </Button>
+                            <Button variant="ghost" size="sm" className='cursor-pointer text-red-500 hover:text-red-400 hover:bg-red-500/10' onClick={() => handleDeleteClick(broker)} title="Delete broker">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -581,12 +633,28 @@ export default function BrokerListPage() {
                   <Button variant="ghost" size="sm" onClick={() => handleInteraction(broker.id)}>
                     <Phone className="h-4 w-4" />
                   </Button>
+                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-400" onClick={() => handleDeleteClick(broker)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             ))
           )}
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => !isDeleting && setShowDeleteModal(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Broker"
+        message={
+          <>
+            Are you sure you want to delete broker <strong className="text-white">{selectedBroker?.name}</strong>? This will permanently remove the broker record and all related interaction logs. Linked property listings will not be deleted, but will no longer point to this broker.
+          </>
+        }
+        loading={isDeleting}
+      />
     </div>
   );
 }

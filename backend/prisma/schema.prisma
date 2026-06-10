@@ -213,7 +213,7 @@ model PropertyListing {
   
   // Relations
   ownerId String?
-  owner Owner? @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner Owner? @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   
   sourcePartnerId String?
   sourcePartner Broker? @relation(fields: [sourcePartnerId], references: [id], onDelete: SetNull)
