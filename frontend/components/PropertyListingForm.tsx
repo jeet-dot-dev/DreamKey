@@ -228,10 +228,10 @@ export default function PropertyListingForm() {
     const allowed = Array.from(files).slice(0, 20 - totalImageCount);
     allowed.forEach(async (file) => {
       if (!file.type.startsWith("image/")) return;
-      if (file.size > IMAGE_MAX_SIZE) { toast.error(`${file.name} exceeds 2 MB.`); return; }
+      if (file.size > IMAGE_MAX_SIZE) { toast.error("Image file is too large. Max size is 2MB."); return; }
       const tempId = crypto.randomUUID?.() ?? String(Date.now() + Math.random());
       const preview = URL.createObjectURL(file);
-      const toastId = toast.loading(`Uploading ${file.name}`);
+      const toastId = toast.loading("Uploading image...");
       setImageSlots((prev) => [...prev, { kind: "new", tempId, file, preview, caption: "", uploadStatus: "uploading" }]);
       try {
         const presign = await requestPresignedUrl(file, "properties/images");
@@ -242,13 +242,13 @@ export default function PropertyListingForm() {
             : s
         ));
         toast.dismiss(toastId);
-        toast.success(`Uploaded ${file.name}`);
+        toast.success("Image uploaded successfully!");
       } catch (err: any) {
         setImageSlots((prev) => prev.map((s) =>
           s.kind === "new" && s.tempId === tempId ? { ...s, uploadStatus: "failed", error: err?.message } : s
         ));
         toast.dismiss(toastId);
-        toast.error(`Failed to upload ${file.name}`);
+        toast.error("Failed to upload image. Please try again.");
       }
     });
   };
@@ -258,7 +258,7 @@ export default function PropertyListingForm() {
     setImageSlots((prev) => prev.map((s) =>
       s.kind === "existing" && s.id === id ? { ...s, markedForDeletion: true } : s
     ));
-    toast.info("Image will be removed when you save.");
+    toast.info("Image will be removed when saved.");
   };
 
   const undoRemoveExistingImage = (id: string) => {
@@ -300,26 +300,26 @@ export default function PropertyListingForm() {
   const handleBrochureUpload = async (files: FileList | null) => {
     if (!files?.[0]) return;
     const file = files[0];
-    if (file.type !== "application/pdf") { toast.error("Only PDF allowed"); return; }
-    if (file.size > BROCHURE_MAX_SIZE) { toast.error("PDF must be ≤ 5 MB"); return; }
+    if (file.type !== "application/pdf") { toast.error("Only PDF brochures are allowed."); return; }
+    if (file.size > BROCHURE_MAX_SIZE) { toast.error("Brochure PDF is too large. Max size is 5MB."); return; }
     const preview = URL.createObjectURL(file);
     setBrochureSlot({ kind: "new", file, preview, uploadStatus: "uploading" });
-    const toastId = toast.loading(`Uploading ${file.name}`);
+    const toastId = toast.loading("Uploading brochure...");
     try {
       const presign = await requestPresignedUrl(file, "properties/brochures");
       await uploadToR2(presign.uploadUrl, file);
       setBrochureSlot({ kind: "new", file, preview, uploadStatus: "uploaded", objectKey: presign.objectKey, publicUrl: presign.publicUrl });
-      toast.dismiss(toastId); toast.success(`Uploaded ${file.name}`);
+      toast.dismiss(toastId); toast.success("Brochure uploaded successfully!");
     } catch (err: any) {
       setBrochureSlot({ kind: "new", file, preview, uploadStatus: "failed", error: err?.message });
-      toast.dismiss(toastId); toast.error(`Failed to upload ${file.name}`);
+      toast.dismiss(toastId); toast.error("Failed to upload brochure. Please try again.");
     }
   };
 
   const markBrochureForDeletion = () => {
     if (brochureSlot?.kind === "existing") {
       setBrochureSlot({ ...brochureSlot, markedForDeletion: true });
-      toast.info("Brochure will be removed when you save.");
+      toast.info("Brochure will be removed when saved.");
     }
   };
 
@@ -341,23 +341,29 @@ export default function PropertyListingForm() {
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!formData.propertyType || !formData.buildingName || !formData.location || !formData.pinCode) {
-      toast.error("Fill required fields: type, building, location, pin code.");
+    if (!formData.propertyType || !formData.buildingName || !formData.location || !formData.pinCode || !formData.askingPrice || !formData.availabilityStatus) {
+      toast.error("Please fill in all required fields (Type, Building, Location, Pin Code, Asking Price, Status).");
       return;
     }
+
+    if (formData.pinCode.length < 3 || formData.pinCode.length > 6 || isNaN(Number(formData.pinCode))) {
+      toast.error("Pin Code must be between 3 and 6 digits.");
+      return;
+    }
+
     const ownerId = formData.ownerId ?? null;
     const sourcePartnerId = formData.sourcePartnerId ?? null;
     if (!ownerId && !sourcePartnerId) {
-      toast.error("Select an owner or a source broker."); return;
+      toast.error("Please select either a Direct Owner or a Broker."); return;
     }
 
     // Check uploads in progress
     const newImages = imageSlots.filter((s): s is NewImage => s.kind === "new");
     if (newImages.some((s) => s.uploadStatus === "uploading")) {
-      toast.error("Wait for all images to finish uploading."); return;
+      toast.error("Please wait for all images to finish uploading."); return;
     }
     if (brochureSlot?.kind === "new" && brochureSlot.uploadStatus === "uploading") {
-      toast.error("Wait for brochure to finish uploading."); return;
+      toast.error("Please wait for the brochure to finish uploading."); return;
     }
 
     let loadingToast: string | number | undefined;
@@ -422,14 +428,14 @@ export default function PropertyListingForm() {
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.message || `${res.status} ${res.statusText}`);
+      if (!res.ok) throw new Error(json?.message || "Failed to save property listing.");
 
       toast.dismiss(loadingToast);
-      toast.success(isEditMode ? "Property updated!" : "Property created!", { description: json?.message });
+      toast.success(isEditMode ? "Property listing updated successfully!" : "Property listing created successfully!");
       setTimeout(() => router.push(isEditMode ? `/stock/lists/${propertyId}` : "/stock/overview"), 1000);
     } catch (error) {
       if (loadingToast) toast.dismiss(loadingToast);
-      toast.error("Failed to save", { description: error instanceof Error ? error.message : "Unexpected error." });
+      toast.error(error instanceof Error ? error.message : "An unexpected error occurred.");
     } finally {
       setIsSubmitting(false);
     }

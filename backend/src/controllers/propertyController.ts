@@ -2,7 +2,7 @@ import { prisma } from "../lib/prisma.js";
 import { deleteR2Object } from "../lib/r2.js";
 import type { Response } from "express";
 import type { Request as ExpressRequest } from "express";
-import { propertyCreateSchema } from "../schemas/property.schema.js";
+import { propertyCreateSchema, propertyUpdateSchema } from "../schemas/property.schema.js";
 
 interface JwtPayload {
   userId: string;
@@ -29,6 +29,105 @@ function serializeBigInt(obj: any): any {
   return obj;
 }
 
+// Helper function to format errors into simple, easy-to-understand messages for the user
+function formatError(error: any): string {
+  // 1. Handle Zod validation errors
+  if (error && error.issues && Array.isArray(error.issues)) {
+    const issue = error.issues[0];
+    if (issue) {
+      const fieldName = issue.path.join(".");
+      const friendlyNames: Record<string, string> = {
+        propertyType: "Property Type",
+        buildingName: "Building/Society Name",
+        location: "Location/Area",
+        pinCode: "Pin Code",
+        floorNumber: "Floor Number",
+        totalFloors: "Total Floors",
+        bedrooms: "Bedrooms",
+        bathrooms: "Bathrooms",
+        balconies: "Balconies",
+        carpetArea: "Carpet Area",
+        superBuiltUpArea: "Super Built-Up Area",
+        askingPrice: "Asking Price",
+        availabilityStatus: "Availability Status",
+        availabilityDate: "Availability Date",
+        ownerId: "Owner",
+        sourcePartnerId: "Broker/Source Partner",
+        accessType: "Access Type",
+        builderName: "Builder Name",
+        yearBuilt: "Year Built",
+        totalUnits: "Total Units",
+        reraNumber: "RERA Number",
+      };
+
+      const name = friendlyNames[fieldName] || fieldName;
+
+      // Special case: refinement error for missing owner AND broker
+      if (issue.message && issue.message.includes("Either ownerId or sourcePartnerId is required")) {
+        return "Please select either an Owner or a Broker/Source Partner.";
+      }
+
+      if (issue.code === "invalid_type" && issue.received === "undefined") {
+        return `${name} is required.`;
+      }
+      if (issue.code === "too_small" && issue.type === "string") {
+        return `${name} is required.`;
+      }
+      if (issue.code === "too_big" && issue.type === "string") {
+        return `${name} cannot exceed ${issue.maximum} characters.`;
+      }
+      return issue.message || `Invalid input for ${name}.`;
+    }
+  }
+
+  // 2. Handle Prisma/database errors
+  if (error instanceof Error) {
+    const errMsg = error.message;
+
+    // Check for Prisma's Argument missing error
+    const missingArgMatch = errMsg.match(/Argument `(\w+)` is missing/);
+    if (missingArgMatch && missingArgMatch[1]) {
+      const field = missingArgMatch[1];
+      const friendlyFields: Record<string, string> = {
+        propertyType: "Property Type",
+        buildingName: "Building/Society Name",
+        location: "Location/Area",
+        pinCode: "Pin Code",
+        askingPrice: "Asking Price",
+        availabilityStatus: "Availability Status",
+      };
+      return `${friendlyFields[field] || field} is required.`;
+    }
+
+    // Prisma Unique Constraint (P2002)
+    if (errMsg.includes("P2002")) {
+      return "A property with these unique details already exists.";
+    }
+
+    // Prisma Foreign Key Constraint (P2003)
+    if (errMsg.includes("P2003")) {
+      return "The selected Owner or Broker/Source Partner does not exist in the database.";
+    }
+
+    // Value too long for field (P2000) or postgres character varying overflow
+    if (errMsg.includes("value too long for type character varying") || errMsg.includes("P2000")) {
+      return "One of the input fields is too long. Please shorten your answers.";
+    }
+
+    // Other Prisma/DB issues
+    if (errMsg.includes("Invalid `prisma.propertyListing")) {
+      if (errMsg.includes("Expected") && errMsg.includes("provided")) {
+        return "Please check that all numbers and dates are entered in the correct format.";
+      }
+      return "Database validation failed. Please make sure all required fields are filled correctly.";
+    }
+
+    return errMsg;
+  }
+
+  return String(error || "An unexpected error occurred.");
+}
+
 export const createProperty = async (req: AuthRequest, res: Response) => {
   let parsedData: any = null;
 
@@ -36,7 +135,10 @@ export const createProperty = async (req: AuthRequest, res: Response) => {
     if (!req.user?.userId) return res.status(401).json({ message: "Unauthorized" });
 
     const parsed = propertyCreateSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ message: "Validation failed", errors: parsed.error.issues });
+    if (!parsed.success) {
+      const friendlyMsg = formatError(parsed.error);
+      return res.status(400).json({ message: friendlyMsg, errors: parsed.error.issues });
+    }
 
     parsedData = parsed.data;
 
@@ -72,6 +174,11 @@ export const createProperty = async (req: AuthRequest, res: Response) => {
       ownerId: parsedData.ownerId ?? undefined,
       sourcePartnerId: parsedData.sourcePartnerId ?? undefined,
       userId: req.user.userId,
+      // Society Insights fields (formerly missing)
+      builderName: parsedData.builderName ?? undefined,
+      yearBuilt: parsedData.yearBuilt ?? undefined,
+      totalUnits: parsedData.totalUnits ?? undefined,
+      reraNumber: parsedData.reraNumber ?? undefined,
     };
 
     if (parsedData.amenities) {
@@ -129,7 +236,8 @@ export const createProperty = async (req: AuthRequest, res: Response) => {
       }
     }
 
-    return res.status(500).json({ message: "Failed to create property", error: error instanceof Error ? error.message : String(error) });
+    const friendlyMsg = formatError(error);
+    return res.status(400).json({ message: friendlyMsg, error: error instanceof Error ? error.message : String(error) });
   }
 };
 
@@ -304,11 +412,23 @@ export const updateProperty = async (req: AuthRequest, res: Response) => {
     })) as any;
     if (!existing) return res.status(404).json({ message: "Property not found" });
 
-    const parsed = propertyCreateSchema.partial().safeParse(req.body);
-    if (!parsed.success)
-      return res.status(400).json({ message: "Validation failed", errors: parsed.error.issues });
+    const parsed = propertyUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const friendlyMsg = formatError(parsed.error);
+      return res.status(400).json({ message: friendlyMsg, errors: parsed.error.issues });
+    }
 
     const data = parsed.data as any;
+
+    // Ensure that at least one of ownerId or sourcePartnerId will be present after update
+    const finalOwnerId = data.ownerId !== undefined ? data.ownerId : existing.ownerId;
+    const finalSourcePartnerId = data.sourcePartnerId !== undefined ? data.sourcePartnerId : existing.sourcePartnerId;
+
+    if (!finalOwnerId && !finalSourcePartnerId) {
+      return res.status(400).json({
+        message: "Please select either an Owner or a Broker/Source Partner.",
+      });
+    }
 
     // ── Scalar fields ──────────────────────────────────────────────────────
     const scalarFields = [
@@ -406,8 +526,9 @@ export const updateProperty = async (req: AuthRequest, res: Response) => {
     return res.status(200).json({ message: "Property updated", data: serializeBigInt(updated) });
   } catch (error) {
     console.error("Error updating property:", error);
-    return res.status(500).json({
-      message: "Failed to update property",
+    const friendlyMsg = formatError(error);
+    return res.status(400).json({
+      message: friendlyMsg,
       error: error instanceof Error ? error.message : String(error),
     });
   }

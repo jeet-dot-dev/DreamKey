@@ -172,7 +172,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onChange, isLoading 
     });
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="relative w-full sm:w-auto">
+    <Collapsible open={open} onOpenChange={setOpen} className="relative  w-full sm:w-auto">
       <CollapsibleTrigger asChild>
         <Button
           variant="outline"
@@ -187,7 +187,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onChange, isLoading 
         </Button>
       </CollapsibleTrigger>
 
-      <CollapsibleContent className="absolute top-full right-0 mt-2 p-5 rounded-2xl border border-neutral-700 bg-neutral-900 shadow-2xl z-50 w-80 md:w-96 space-y-4">
+      <CollapsibleContent className="absolute  top-full right-0 mt-2 p-5 rounded-2xl border border-neutral-700 bg-neutral-900 shadow-2xl z-200 w-80 md:w-96 space-y-4">
         {/* Property Type */}
         <div className="space-y-2">
           <label className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">

@@ -167,11 +167,10 @@ const Gallery: React.FC<GalleryProps> = ({ images, buildingName }) => {
             <button
               key={img.id}
               onClick={() => setActive(i)}
-              className={`flex-shrink-0 h-16 w-24 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-                i === active
-                  ? 'border-yellow-400 opacity-100'
-                  : 'border-neutral-700 opacity-50 hover:opacity-80'
-              }`}
+              className={`flex-shrink-0 h-16 w-24 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${i === active
+                ? 'border-yellow-400 opacity-100'
+                : 'border-neutral-700 opacity-50 hover:opacity-80'
+                }`}
             >
               <img
                 src={img.url}
@@ -213,11 +212,10 @@ const DataRow: React.FC<{ label: string; value?: React.ReactNode }> = ({ label, 
 
 const AmenityBadge: React.FC<{ label: string; active: boolean }> = ({ label, active }) => (
   <div
-    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border ${
-      active
-        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-        : 'bg-neutral-800/50 text-neutral-600 border-neutral-700/50'
-    }`}
+    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border ${active
+      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+      : 'bg-neutral-800/50 text-neutral-600 border-neutral-700/50'
+      }`}
   >
     {active ? (
       <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
@@ -298,14 +296,14 @@ export default function PropertyDetailPage() {
 
   const amenityList = property.amenities
     ? [
-        { label: 'Parking', active: property.amenities.parking },
-        { label: 'Gym', active: property.amenities.gym },
-        { label: 'Lift', active: property.amenities.lift },
-        { label: 'Security', active: property.amenities.security },
-        { label: 'Power Backup', active: property.amenities.powerBackup },
-        { label: 'Swimming Pool', active: property.amenities.swimmingPool },
-        { label: 'Clubhouse', active: property.amenities.clubhouse },
-      ]
+      { label: 'Parking', active: property.amenities.parking },
+      { label: 'Gym', active: property.amenities.gym },
+      { label: 'Lift', active: property.amenities.lift },
+      { label: 'Security', active: property.amenities.security },
+      { label: 'Power Backup', active: property.amenities.powerBackup },
+      { label: 'Swimming Pool', active: property.amenities.swimmingPool },
+      { label: 'Clubhouse', active: property.amenities.clubhouse },
+    ]
     : [];
 
   return (
@@ -326,7 +324,7 @@ export default function PropertyDetailPage() {
             className="bg-yellow-400 hover:bg-yellow-300 text-black font-semibold flex items-center gap-2"
           >
             <Edit className="h-4 w-4" />
-            Edit Property
+            Edit
           </Button>
         </div>
 
@@ -639,22 +637,7 @@ export default function PropertyDetailPage() {
           </div>
         )}
 
-        {/* Bottom Edit CTA */}
-        <div className="rounded-2xl border border-neutral-800 bg-gradient-to-r from-yellow-500/5 to-neutral-900/80 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-white">Need to make changes?</p>
-            <p className="text-xs text-neutral-500 mt-0.5">
-              Update this property's details, images, or pricing.
-            </p>
-          </div>
-          <Button
-            onClick={() => router.push(`/stock/add-listing?id=${property.id}`)}
-            className="bg-yellow-400 hover:bg-yellow-300 text-black font-semibold flex items-center gap-2 flex-shrink-0"
-          >
-            <Edit className="h-4 w-4" />
-            Edit This Property
-          </Button>
-        </div>
+
       </div>
     </div>
   );
