@@ -108,7 +108,7 @@ export default function OwnerListPage() {
           </div>
         )}
 
-        <div className="mt-6 overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-900/80">
+        <div className="mt-6 overflow-x-auto rounded-3xl border border-neutral-800 bg-neutral-900/80">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-neutral-800 bg-neutral-950 text-neutral-400">
               <tr>

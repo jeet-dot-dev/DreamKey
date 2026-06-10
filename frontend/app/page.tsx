@@ -19,7 +19,7 @@ export default function Dashboard() {
       description: 'Centralized repository for high-value properties and portfolio assets.',
       stat: '1,248 UNITS',
       statLabel: 'Units',
-      varience:"stock",
+      varience: "stock",
     },
     {
       icon: <Users className="w-6 h-6" />,
@@ -27,7 +27,7 @@ export default function Dashboard() {
       description: 'Manage professional relationships and partnership commission structures.',
       stat: '84 ACTIVE PARTNERS',
       statLabel: 'Partners',
-      varience:"broker",
+      varience: "broker",
     },
     {
       icon: <Users className="w-6 h-6" />,
@@ -35,16 +35,16 @@ export default function Dashboard() {
       description: 'Detailed profiles of high-net-worth property owners and investors.',
       stat: '312 PROFILES',
       statLabel: 'Profiles',
-      varience:"owner",
+      varience: "owner",
     },
     {
       icon: <AlertCircle className="w-6 h-6" />,
-      title: 'Follow-Ups',
+      title: 'Leads',
       description: 'Automated reminder system for client nurturing and deal closures.',
       stat: '12 PENDING TODAY',
-      statLabel: 'Follow-ups',
+      statLabel: 'Leads',
       statColor: 'gold' as const,
-      varience:"leads",
+      varience: "leads",
     },
     {
       icon: <CheckSquare className="w-6 h-6" />,
@@ -52,7 +52,7 @@ export default function Dashboard() {
       description: 'Operational task management and property site visit coordination.',
       stat: '48 OPEN TASKS',
       statLabel: 'Tasks',
-      varience:"task",
+      varience: "task",
     },
     {
       icon: <CreditCard className="w-6 h-6" />,
@@ -61,7 +61,7 @@ export default function Dashboard() {
       stat: 'QUARTERLY UPDATE',
       statLabel: 'Status',
       statColor: 'gold' as const,
-      varience:"finance",
+      varience: "finance",
     },
   ]
 

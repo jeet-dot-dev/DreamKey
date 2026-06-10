@@ -18,7 +18,7 @@ import { useRouter, usePathname } from "next/navigation";
 
 type StockLayoutProps = {
   children: React.ReactNode;
-  variant?: "broker" | "stock"  | "owner";
+  variant?: "broker" | "stock" | "owner" | "leads";
 };
 
 type User = {
@@ -92,7 +92,7 @@ export default function StockLayout({ children, variant = "stock" }: StockLayout
       id: "favorites",
       href: `/${variant}/favorites`,
     },
-   
+
   ];
 
   return (

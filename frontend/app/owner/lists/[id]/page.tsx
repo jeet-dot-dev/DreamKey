@@ -119,10 +119,7 @@ export default function OwnerDetailPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button onClick={() => router.push(`/owner/interaction?id=${owner.id}`)} variant="outline" className="border-neutral-700 bg-black/40 text-white hover:bg-neutral-800">
-                <MessageSquarePlus className="mr-2 h-4 w-4" />
-                Interactions
-              </Button>
+
               <Button onClick={() => router.push(`/owner/lists/${owner.id}/edit`)} className="bg-yellow-400 text-black hover:bg-yellow-300">
                 <Edit3 className="mr-2 h-4 w-4" />
                 Edit
@@ -134,6 +131,10 @@ export default function OwnerDetailPage() {
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
+              </Button>
+              <Button onClick={() => router.push(`/owner/interaction?id=${owner.id}`)} variant="outline" className="border-neutral-700 bg-black/40 text-white hover:bg-neutral-800">
+                <MessageSquarePlus className="mr-2 h-4 w-4" />
+                Interactions
               </Button>
               <Button
                 variant="outline"

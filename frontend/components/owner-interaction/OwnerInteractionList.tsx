@@ -122,7 +122,7 @@ export default function OwnerInteractionList({ ownerId, interactions, loading, r
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="w-full rounded-2xl border border-neutral-700 bg-black/60 px-4 py-3 text-sm text-white shadow-sm outline-none transition focus:border-yellow-400/70 focus:ring-2 focus:ring-yellow-400/20"
+          className="w-full rounded-2xl border border-neutral-700 bg-black/60 px-5 py-3 text-sm text-white shadow-sm outline-none transition focus:border-yellow-400/70 focus:ring-2 focus:ring-yellow-400/20"
         >
           <option value="all">All types</option>
           <option value="Call">Call</option>
@@ -158,13 +158,13 @@ export default function OwnerInteractionList({ ownerId, interactions, loading, r
                   Add the first call or meeting to start building the owner timeline.
                 </p>
               </div>
-              <Button
+              {/* <Button
                 onClick={() => router.push(`/owner/interaction/add?id=${ownerId}`)}
                 className="bg-yellow-400 text-black hover:bg-yellow-300"
               >
                 <MessageSquarePlus className="mr-2 h-4 w-4" />
                 Add first interaction
-              </Button>
+              </Button> */}
             </div>
           </div>
         )}
