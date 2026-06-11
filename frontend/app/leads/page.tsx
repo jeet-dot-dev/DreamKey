@@ -1,14 +1,13 @@
 "use client";
-
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-export default function LeadPage() {
-    const router = useRouter();
+export default function LeadsPage() {
+  const router = useRouter();
 
-    useEffect(() => {
-        router.push("/leads/overview");
-    }, [router]);
+  useEffect(() => {
+    router.push("/leads/overview");
+  }, []);
 
-    return null;
+  return null;
 }

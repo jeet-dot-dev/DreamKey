@@ -27,7 +27,7 @@ export default function FavoritesPage() {
                         </p>
                         <div className="flex justify-center gap-3">
                             <Button onClick={() => router.push("/owner/overview")} className="bg-yellow-400 text-black hover:bg-yellow-300">
-                                Browse Stock
+                                Browse Owner
                             </Button>
                         </div>
                     </div>

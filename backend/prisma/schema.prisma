@@ -224,6 +224,7 @@ model PropertyListing {
   amenities PropertyAmenities?
   images PropertyImage[]
   societyBrochure PropertyBrochure?
+  shares PropertyShare[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -289,3 +290,125 @@ model PropertyBrochure {
   updatedAt DateTime @updatedAt
 }
 
+enum LeadStatus {
+  NEW
+  FOLLOW_UP
+  NEGOTIATION
+  CLOSED
+  LOST
+}
+
+enum LeadPriority {
+  HOT
+  WARM
+  COLD
+}
+
+enum FurnishedType {
+  UNFURNISHED
+  SEMI_FURNISHED
+  FULLY_FURNISHED
+}
+
+model Lead {
+  id String @id @default(uuid())
+
+  // Basic Info
+  name String
+  phone String @db.VarChar(10)
+
+  email String?
+  whatsapp String? @db.VarChar(10)
+
+  source String?
+
+  // Budget
+  budgetMin BigInt?
+  budgetMax BigInt?
+
+  // Location
+  preferredLocation String?
+
+  // Property Preferences
+  propertyType PropertyType?
+
+  bedrooms Int?
+  bathrooms Int?
+
+  minArea Decimal?
+  maxArea Decimal?
+
+  furnishedType FurnishedType?
+
+  // Amenities
+  preferredAmenities String? @db.Text
+
+  // Purchase Intent
+  purchaseTimeline String?
+
+  priority LeadPriority @default(WARM)
+
+  notes String? @db.Text
+
+  status LeadStatus @default(NEW)
+
+  interactions LeadInteraction[]
+  shares PropertyShare[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phone])
+  @@index([status])
+  @@index([priority])
+}
+
+enum InteractionType {
+  CALL
+  WHATSAPP
+  EMAIL
+  MEETING
+  SITE_VISIT
+  NOTE
+  PROPERTY_SHARED
+}
+
+model LeadInteraction {
+  id String @id @default(uuid())
+
+  leadId String
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  type InteractionType
+
+  subject String @db.VarChar(255)
+
+  notes String @db.Text
+
+  followUpDate DateTime?
+
+  outcome String?
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+  @@index([createdAt])
+  @@index([followUpDate])
+}
+
+model PropertyShare {
+  id String @id @default(uuid())
+
+  token String @unique
+
+  propertyId String
+  property PropertyListing @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  leadId String?
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([propertyId])
+}
