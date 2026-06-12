@@ -543,29 +543,31 @@ export default function PublicSharePage() {
 
       {/* Sticky Bottom Actions Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-neutral-950/80 backdrop-blur-xl border-t border-neutral-850 py-4 px-4 sm:px-6 shadow-2xl">
-        <div className="mx-auto max-w-3xl flex items-center justify-between gap-3 sm:gap-4">
+        <div className="mx-auto max-w-3xl flex items-center justify-between gap-2 sm:gap-4">
           <a
             href={`tel:${supportPhone}`}
-            className="flex-1 max-w-[160px] inline-flex items-center justify-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 text-sm font-semibold py-3 sm:py-3.5 transition-colors cursor-pointer text-center"
+            className="flex-1 sm:max-w-[160px] inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 text-xs sm:text-sm font-semibold py-2.5 sm:py-3.5 transition-all cursor-pointer text-center whitespace-nowrap"
           >
-            <Phone className="w-4 h-4" />
-            Call Now
+            <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span className="hidden sm:inline">Call Now</span>
+            <span className="sm:hidden">Call</span>
           </a>
           <a
             href={whatsappSupportUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-3 sm:py-3.5 transition-colors cursor-pointer text-center shadow-lg shadow-emerald-600/10"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold py-2.5 sm:py-3.5 transition-all cursor-pointer text-center shadow-lg shadow-emerald-600/10 whitespace-nowrap"
           >
-            <MessageSquare className="w-4 h-4" />
-            WhatsApp
+            <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span>WhatsApp</span>
           </a>
           <a
             href={pdfDownloadUrl}
-            className="flex-1 max-w-[200px] inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-400 hover:bg-yellow-350 text-black text-sm font-bold py-3 sm:py-3.5 transition-colors cursor-pointer text-center shadow-lg shadow-yellow-400/15"
+            className="flex-1 sm:max-w-[200px] inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-yellow-400 hover:bg-yellow-350 text-black text-xs sm:text-sm font-bold py-2.5 sm:py-3.5 transition-all cursor-pointer text-center shadow-lg shadow-yellow-400/15 whitespace-nowrap"
           >
-            <Download className="w-4 h-4" />
-            Download PDF
+            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span className="hidden sm:inline">Download PDF</span>
+            <span className="sm:hidden">PDF</span>
           </a>
         </div>
       </div>

@@ -4,8 +4,8 @@ import { verifyToken } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-router.get("/", listInteractions);
-router.get("/:id", getInteractionById);
+router.get("/", verifyToken, listInteractions);
+router.get("/:id", verifyToken, getInteractionById);
 router.post("/", verifyToken, createInteraction);
 router.put("/:id", verifyToken, updateInteraction);
 router.delete("/:id", verifyToken, deleteInteraction);

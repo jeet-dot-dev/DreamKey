@@ -222,7 +222,7 @@ export const generateSharedPropertyPdf = async (req: ExpressRequest, res: Respon
     const p = share.property;
 
     // Create PDFkit document
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({ margin: 40 });
     
     // Set headers to download PDF
     res.setHeader("Content-Type", "application/pdf");
@@ -234,16 +234,16 @@ export const generateSharedPropertyPdf = async (req: ExpressRequest, res: Respon
     doc.pipe(res);
 
     // Header Branding
-    doc.fontSize(26).fillColor("#EAB308").text("DreamKey Realty", { align: "center" });
-    doc.fontSize(10).fillColor("#737373").text("Premium Real Estate Solutions", { align: "center" });
-    doc.moveDown(1.5);
+    doc.fontSize(22).fillColor("#EAB308").text("DreamKey Realty", { align: "center" });
+    doc.fontSize(9).fillColor("#737373").text("Premium Real Estate Solutions", { align: "center" });
+    doc.moveDown(1);
 
     // Title / Building Details
-    doc.fontSize(20).fillColor("#FFFFFF").rect(50, doc.y, 512, 36).fill("#171717");
-    doc.fillColor("#EAB308").text(`  ${p.buildingName}`, 55, doc.y - 28, { baseline: "middle" });
+    doc.fontSize(16).fillColor("#FFFFFF").rect(40, doc.y, 515, 28).fill("#171717");
+    doc.fillColor("#EAB308").text(`  ${p.buildingName}`, 45, doc.y - 22, { baseline: "middle" });
     
-    doc.y = doc.y + 10; // offset
-    doc.moveDown(1);
+    doc.y = doc.y + 6; // offset
+    doc.moveDown(0.8);
 
     // Property Image (optional)
     if (p.images && p.images.length > 0) {
@@ -254,10 +254,10 @@ export const generateSharedPropertyPdf = async (req: ExpressRequest, res: Respon
         if (buffer) {
           try {
             doc.image(buffer, {
-              fit: [512, 280],
+              fit: [515, 180],
               align: "center",
             });
-            doc.moveDown(1.5);
+            doc.moveDown(1);
           } catch (err) {
             console.error("Failed to render main image inside PDF:", err);
           }
@@ -266,11 +266,11 @@ export const generateSharedPropertyPdf = async (req: ExpressRequest, res: Respon
     }
 
     // Specifications Grid
-    doc.fontSize(14).fillColor("#EAB308").text("Property Details", 50);
-    doc.strokeColor("#262626").lineWidth(1).moveTo(50, doc.y + 4).lineTo(562, doc.y + 4).stroke();
-    doc.moveDown(1);
+    doc.fontSize(12).fillColor("#EAB308").text("Property Details", 40);
+    doc.strokeColor("#262626").lineWidth(1).moveTo(40, doc.y + 3).lineTo(555, doc.y + 3).stroke();
+    doc.moveDown(0.8);
 
-    doc.fontSize(10).fillColor("#A3A3A3");
+    doc.fontSize(9).fillColor("#A3A3A3");
     
     const details = [
       { label: "Property Type", value: p.propertyType },
@@ -289,15 +289,15 @@ export const generateSharedPropertyPdf = async (req: ExpressRequest, res: Respon
     details.forEach((item, idx) => {
       const col = idx % 2;
       const row = Math.floor(idx / 2);
-      const x = col === 0 ? 60 : 300;
-      const y = startY + row * 22;
+      const x = col === 0 ? 50 : 290;
+      const y = startY + row * 18;
 
       doc.fillColor("#737373").text(`${item.label}:`, x, y);
       doc.fillColor("#FFFFFF").text(` ${item.value}`, x + 85, y);
     });
 
-    doc.y = startY + Math.ceil(details.length / 2) * 22 + 15;
-    doc.moveDown(1);
+    doc.y = startY + Math.ceil(details.length / 2) * 18 + 10;
+    doc.moveDown(0.8);
 
     // Amenities Section
     if (p.amenities) {
@@ -311,30 +311,35 @@ export const generateSharedPropertyPdf = async (req: ExpressRequest, res: Respon
       if (p.amenities.clubhouse) amenityLabels.push("🏢 Clubhouse");
 
       if (amenityLabels.length > 0) {
-        doc.fontSize(14).fillColor("#EAB308").text("Amenities", 50);
-        doc.strokeColor("#262626").lineWidth(1).moveTo(50, doc.y + 4).lineTo(562, doc.y + 4).stroke();
-        doc.moveDown(1);
+        doc.fontSize(12).fillColor("#EAB308").text("Amenities", 40);
+        doc.strokeColor("#262626").lineWidth(1).moveTo(40, doc.y + 3).lineTo(555, doc.y + 3).stroke();
+        doc.moveDown(0.8);
         
-        doc.fontSize(10).fillColor("#FFFFFF");
-        doc.text(amenityLabels.join("   |   "), 60);
-        doc.moveDown(2);
+        doc.fontSize(9).fillColor("#FFFFFF");
+        doc.text(amenityLabels.join("   |   "), 50);
+        doc.moveDown(1.5);
       }
     }
 
     // Remarks / Description
     if (p.remarks) {
-      doc.fontSize(14).fillColor("#EAB308").text("Description", 50);
-      doc.strokeColor("#262626").lineWidth(1).moveTo(50, doc.y + 4).lineTo(562, doc.y + 4).stroke();
-      doc.moveDown(1);
+      doc.fontSize(12).fillColor("#EAB308").text("Description", 40);
+      doc.strokeColor("#262626").lineWidth(1).moveTo(40, doc.y + 3).lineTo(555, doc.y + 3).stroke();
+      doc.moveDown(0.8);
       
-      doc.fontSize(10).fillColor("#D4D4D4").text(p.remarks, 60, doc.y, { align: "justify", width: 480 });
-      doc.moveDown(2);
+      let descriptionText = p.remarks;
+      if (descriptionText.length > 800) {
+        descriptionText = descriptionText.substring(0, 800) + "...";
+      }
+      doc.fontSize(9).fillColor("#D4D4D4").text(descriptionText, 50, doc.y, { align: "justify", width: 495 });
+      doc.moveDown(1.5);
     }
 
-    // Footer Contact Details
-    doc.strokeColor("#EAB308").lineWidth(1.5).moveTo(50, 720).lineTo(562, 720).stroke();
-    doc.fontSize(9).fillColor("#737373").text("For further details or to schedule a visit, contact us at:", 50, 730, { align: "center" });
-    doc.fontSize(10).fillColor("#EAB308").text("DreamKey Realty Support Team", 50, 742, { align: "center" });
+    // Footer Contact Details (Dynamic position but fixed bottom limit to ensure single-page layout is respected)
+    const footerY = Math.max(doc.y + 10, 735);
+    doc.strokeColor("#EAB308").lineWidth(1).moveTo(40, footerY).lineTo(555, footerY).stroke();
+    doc.fontSize(8).fillColor("#737373").text("For further details or to schedule a visit, contact us at:", 40, footerY + 10, { align: "center" });
+    doc.fontSize(9).fillColor("#EAB308").text("DreamKey Realty Support Team", 40, footerY + 22, { align: "center" });
 
     doc.end();
   } catch (error) {

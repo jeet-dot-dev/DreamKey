@@ -121,8 +121,33 @@ export default function SharePropertyModal({
     if (!sharingProperty) return;
 
     const formattedPrice = formatPrice(sharingProperty.askingPrice);
-    const message = `Hi *${leadName}*,\n\nHere are the details of the property we discussed:\n\n🏢 *${sharingProperty.buildingName}*\n📍 Location: ${sharingProperty.location}\n💰 Asking Price: ${formattedPrice}\n\nYou can view the full details and images here:\n🔗 ${shareLink}\n\nLet me know if you would like to schedule a visit!`;
+    const message = `*DreamKey Realty   *
 
+Hello *${leadName}*,
+
+Thank you for your interest. Please find the property details below:
+━━━━━━━━━━━━━━━
+*${sharingProperty.buildingName}*
+
+Location: ${sharingProperty.location}
+Property Type: ${sharingProperty.propertyType}
+Bedrooms: ${sharingProperty.bedrooms ?? "N/A"}
+Bathrooms: ${sharingProperty.bathrooms ?? "N/A"}
+Area: ${sharingProperty.carpetArea ?? "N/A"} sq.ft.
+Price: ${formattedPrice}
+━━━━━━━━━━━━━━━
+View Property Details:
+Click On : ${shareLink}
+If you would like to schedule a site visit or need additional information, please let us know.
+
+DreamKey Realty
+
+Office:
+DreamKey Realty
+DD block , Newtown, Kolkata
+Phone: +917980133881
+Email: dreamkeymainak25@gmail.com
+We look forward to assisting you.`;
     const targetNumber = leadWhatsapp || leadPhone || "";
     let cleaned = targetNumber.replace(/\D/g, "");
     if (cleaned.length === 10) {

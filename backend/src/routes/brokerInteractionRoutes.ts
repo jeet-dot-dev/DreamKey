@@ -5,10 +5,10 @@ import { verifyToken } from '../middlewares/auth.js';
 const router = express.Router();
 
 // GET /broker/interaction?brokerId={id}
-router.get('/', listInteractions);
+router.get('/', verifyToken, listInteractions);
 
 // GET /broker/interaction/:id
-router.get('/:id', getInteractionById);
+router.get('/:id', verifyToken, getInteractionById);
 
 // POST /broker/interaction
 router.post('/', verifyToken, createInteraction);

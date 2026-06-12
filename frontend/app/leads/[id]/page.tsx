@@ -131,16 +131,16 @@ export default function LeadDetailPage() {
   const router = useRouter();
   const params = useParams();
   const leadId = params?.id as string;
-  
+
   const { leads, isLoading, error, refetch } = useLeads();
-  
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'interactions'>('overview');
 
   const handleBack = () => {
-    router.push('/leads');
+    router.push('/leads/lists');
   };
 
   const handleDeleteConfirm = async () => {
@@ -215,7 +215,7 @@ export default function LeadDetailPage() {
   return (
     <div className="min-h-screen w-full bg-background">
       <div className="mx-auto max-w-6xl px-4 py-6">
-        
+
         {/* Header with Back Button */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 border-b border-neutral-800 pb-6">
           <div className="flex items-center gap-4">
@@ -232,7 +232,7 @@ export default function LeadDetailPage() {
               <p className="text-sm text-neutral-400 mt-1">Lead ID: {lead.id}</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <span className={`px-4 py-2 rounded-full font-semibold border ${getStatusColor(lead.status)}`}>
               {lead.status.replace('_', ' ')}
@@ -247,21 +247,19 @@ export default function LeadDetailPage() {
         <div className="flex border-b border-neutral-800 mb-6 gap-6">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`pb-4 text-sm font-semibold tracking-wide transition-all border-b-2 cursor-pointer ${
-              activeTab === 'overview'
+            className={`pb-4 text-sm font-semibold tracking-wide transition-all border-b-2 cursor-pointer ${activeTab === 'overview'
                 ? 'border-yellow-400 text-yellow-400'
                 : 'border-transparent text-neutral-400 hover:text-white'
-            }`}
+              }`}
           >
             Overview
           </button>
           <button
             onClick={() => setActiveTab('interactions')}
-            className={`pb-4 text-sm font-semibold tracking-wide transition-all border-b-2 cursor-pointer ${
-              activeTab === 'interactions'
+            className={`pb-4 text-sm font-semibold tracking-wide transition-all border-b-2 cursor-pointer ${activeTab === 'interactions'
                 ? 'border-yellow-400 text-yellow-400'
                 : 'border-transparent text-neutral-400 hover:text-white'
-            }`}
+              }`}
           >
             Interactions
           </button>
@@ -295,194 +293,194 @@ export default function LeadDetailPage() {
 
         {activeTab === 'overview' ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          
-          {/* Left Column - Details */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* Basic Information Section */}
-            <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Bookmark className="h-5 w-5 text-yellow-400" />
-                Basic Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <DetailItem
-                  icon={<Phone className="h-5 w-5" />}
-                  label="Phone"
-                  value={
-                    <a href={`tel:${lead.phone}`} className="text-yellow-400 hover:underline">
-                      {lead.phone}
-                    </a>
-                  }
-                />
-                <DetailItem
-                  icon={<Mail className="h-5 w-5" />}
-                  label="Email"
-                  value={
-                    lead.email ? (
-                      <a href={`mailto:${lead.email}`} className="text-yellow-400 hover:underline">
-                        {lead.email}
-                      </a>
-                    ) : (
-                      'N/A'
-                    )
-                  }
-                />
-                {lead.whatsapp && (
+
+            {/* Left Column - Details */}
+            <div className="lg:col-span-2 space-y-6">
+
+              {/* Basic Information Section */}
+              <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Bookmark className="h-5 w-5 text-yellow-400" />
+                  Basic Information
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <DetailItem
                     icon={<Phone className="h-5 w-5" />}
-                    label="WhatsApp"
+                    label="Phone"
                     value={
-                      <a href={`https://wa.me/${lead.whatsapp}`} target="_blank" rel="noopener noreferrer" className="text-yellow-400 hover:underline">
-                        {lead.whatsapp}
+                      <a href={`tel:${lead.phone}`} className="text-yellow-400 hover:underline">
+                        {lead.phone}
                       </a>
                     }
                   />
-                )}
-                <DetailItem
-                  icon={<Sparkles className="h-5 w-5" />}
-                  label="Lead Source"
-                  value={lead.source}
-                />
-              </div>
-            </div>
-
-            {/* Budget & Location Section */}
-            <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-yellow-400" />
-                Budget & Location
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <DetailItem
-                  icon={<DollarSign className="h-5 w-5" />}
-                  label="Budget Range"
-                  value={
-                    lead.budgetMin || lead.budgetMax ? (
-                      `${formatCurrency(lead.budgetMin)} - ${formatCurrency(lead.budgetMax)}`
-                    ) : (
-                      'N/A'
-                    )
-                  }
-                />
-                <DetailItem
-                  icon={<MapPin className="h-5 w-5" />}
-                  label="Preferred Location"
-                  value={lead.preferredLocation}
-                />
-              </div>
-            </div>
-
-            {/* Property Preferences Section */}
-            <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-yellow-400" />
-                Property Preferences
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <DetailItem
-                  icon={<Building2 className="h-5 w-5" />}
-                  label="Property Type"
-                  value={lead.propertyType}
-                />
-                <DetailItem
-                  icon={<Layers className="h-5 w-5" />}
-                  label="Configuration"
-                  value={
-                    lead.bedrooms || lead.bathrooms ? (
-                      `${lead.bedrooms || 0} BHK / ${lead.bathrooms || 0} Bath`
-                    ) : (
-                      'N/A'
-                    )
-                  }
-                />
-                <DetailItem
-                  icon={<Layers className="h-5 w-5" />}
-                  label="Area Range (Sq.Ft.)"
-                  value={
-                    lead.minArea || lead.maxArea ? (
-                      `${lead.minArea ? Number(lead.minArea) : 0} - ${lead.maxArea ? Number(lead.maxArea) : 0} Sq.Ft.`
-                    ) : (
-                      'N/A'
-                    )
-                  }
-                />
-                <DetailItem
-                  icon={<Sparkles className="h-5 w-5" />}
-                  label="Furnishing Status"
-                  value={lead.furnishedType ? lead.furnishedType.replace('_', ' ') : 'N/A'}
-                />
-              </div>
-            </div>
-
-            {/* Amenities Section */}
-            <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-yellow-400" />
-                Preferred Amenities
-              </h2>
-              {amenities.length === 0 ? (
-                <p className="text-sm text-neutral-400">No amenities preferences specified.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {amenities.map((amenity: string, idx: number) => (
-                    <span key={idx} className="text-sm bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 px-3 py-1.5 rounded-xl font-medium">
-                      {amenity}
-                    </span>
-                  ))}
+                  <DetailItem
+                    icon={<Mail className="h-5 w-5" />}
+                    label="Email"
+                    value={
+                      lead.email ? (
+                        <a href={`mailto:${lead.email}`} className="text-yellow-400 hover:underline">
+                          {lead.email}
+                        </a>
+                      ) : (
+                        'N/A'
+                      )
+                    }
+                  />
+                  {lead.whatsapp && (
+                    <DetailItem
+                      icon={<Phone className="h-5 w-5" />}
+                      label="WhatsApp"
+                      value={
+                        <a href={`https://wa.me/${lead.whatsapp}`} target="_blank" rel="noopener noreferrer" className="text-yellow-400 hover:underline">
+                          {lead.whatsapp}
+                        </a>
+                      }
+                    />
+                  )}
+                  <DetailItem
+                    icon={<Sparkles className="h-5 w-5" />}
+                    label="Lead Source"
+                    value={lead.source}
+                  />
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Notes Section */}
-            {lead.notes && (
+              {/* Budget & Location Section */}
               <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm">
                 <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-yellow-400" />
-                  Notes
+                  <DollarSign className="h-5 w-5 text-yellow-400" />
+                  Budget & Location
                 </h2>
-                <p className="text-sm text-neutral-300 whitespace-pre-wrap bg-neutral-950/40 p-4 rounded-xl border border-neutral-800">
-                  {lead.notes}
-                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <DetailItem
+                    icon={<DollarSign className="h-5 w-5" />}
+                    label="Budget Range"
+                    value={
+                      lead.budgetMin || lead.budgetMax ? (
+                        `${formatCurrency(lead.budgetMin)} - ${formatCurrency(lead.budgetMax)}`
+                      ) : (
+                        'N/A'
+                      )
+                    }
+                  />
+                  <DetailItem
+                    icon={<MapPin className="h-5 w-5" />}
+                    label="Preferred Location"
+                    value={lead.preferredLocation}
+                  />
+                </div>
               </div>
-            )}
 
-          </div>
+              {/* Property Preferences Section */}
+              <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-yellow-400" />
+                  Property Preferences
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <DetailItem
+                    icon={<Building2 className="h-5 w-5" />}
+                    label="Property Type"
+                    value={lead.propertyType}
+                  />
+                  <DetailItem
+                    icon={<Layers className="h-5 w-5" />}
+                    label="Configuration"
+                    value={
+                      lead.bedrooms || lead.bathrooms ? (
+                        `${lead.bedrooms || 0} BHK / ${lead.bathrooms || 0} Bath`
+                      ) : (
+                        'N/A'
+                      )
+                    }
+                  />
+                  <DetailItem
+                    icon={<Layers className="h-5 w-5" />}
+                    label="Area Range (Sq.Ft.)"
+                    value={
+                      lead.minArea || lead.maxArea ? (
+                        `${lead.minArea ? Number(lead.minArea) : 0} - ${lead.maxArea ? Number(lead.maxArea) : 0} Sq.Ft.`
+                      ) : (
+                        'N/A'
+                      )
+                    }
+                  />
+                  <DetailItem
+                    icon={<Sparkles className="h-5 w-5" />}
+                    label="Furnishing Status"
+                    value={lead.furnishedType ? lead.furnishedType.replace('_', ' ') : 'N/A'}
+                  />
+                </div>
+              </div>
 
-          {/* Right Column - Status & Metadata */}
-          <div className="space-y-6">
-            
-            {/* Purchase Details Card */}
-            <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm space-y-4">
-              <h2 className="text-lg font-semibold text-white">Purchase Timeline</h2>
-              
-              <DetailItem
-                icon={<Calendar className="h-5 w-5" />}
-                label="Estimated Timeline"
-                value={lead.purchaseTimeline || 'Exploring / No Timeline'}
-              />
+              {/* Amenities Section */}
+              <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-yellow-400" />
+                  Preferred Amenities
+                </h2>
+                {amenities.length === 0 ? (
+                  <p className="text-sm text-neutral-400">No amenities preferences specified.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {amenities.map((amenity: string, idx: number) => (
+                      <span key={idx} className="text-sm bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 px-3 py-1.5 rounded-xl font-medium">
+                        {amenity}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Notes Section */}
+              {lead.notes && (
+                <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-yellow-400" />
+                    Notes
+                  </h2>
+                  <p className="text-sm text-neutral-300 whitespace-pre-wrap bg-neutral-950/40 p-4 rounded-xl border border-neutral-800">
+                    {lead.notes}
+                  </p>
+                </div>
+              )}
+
             </div>
 
-            {/* Dates Card */}
-            <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm space-y-4">
-              <h2 className="text-lg font-semibold text-white">Metadata</h2>
-              
-              <DetailItem
-                icon={<Calendar className="h-5 w-5" />}
-                label="Created"
-                value={formatDate(lead.createdAt)}
-              />
+            {/* Right Column - Status & Metadata */}
+            <div className="space-y-6">
 
-              <DetailItem
-                icon={<Calendar className="h-5 w-5" />}
-                label="Last Updated"
-                value={formatDate(lead.updatedAt)}
-              />
+              {/* Purchase Details Card */}
+              <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm space-y-4">
+                <h2 className="text-lg font-semibold text-white">Purchase Timeline</h2>
+
+                <DetailItem
+                  icon={<Calendar className="h-5 w-5" />}
+                  label="Estimated Timeline"
+                  value={lead.purchaseTimeline || 'Exploring / No Timeline'}
+                />
+              </div>
+
+              {/* Dates Card */}
+              <div className="rounded-2xl border border-neutral-800 bg-card p-6 shadow-sm space-y-4">
+                <h2 className="text-lg font-semibold text-white">Metadata</h2>
+
+                <DetailItem
+                  icon={<Calendar className="h-5 w-5" />}
+                  label="Created"
+                  value={formatDate(lead.createdAt)}
+                />
+
+                <DetailItem
+                  icon={<Calendar className="h-5 w-5" />}
+                  label="Last Updated"
+                  value={formatDate(lead.updatedAt)}
+                />
+              </div>
+
             </div>
 
           </div>
-
-        </div>
         ) : (
           <LeadInteractionTimeline leadId={leadId} leadName={lead.name} />
         )}

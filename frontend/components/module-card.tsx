@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { ArrowRight } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface ModuleCardProps {
   icon: React.ReactNode
@@ -25,8 +26,13 @@ export function ModuleCard({
   href,
 }: ModuleCardProps) {
   const router = useRouter()
+  const isComingSoon = stat.toUpperCase() === 'COMING SOON'
 
   const handleClick = () => {
+    if (isComingSoon) {
+      toast.info(`${title} module is coming soon!`)
+      return
+    }
     if (onClick) {
       onClick()
     } else if (href) {
@@ -68,7 +74,9 @@ export function ModuleCard({
               {statLabel}
             </p>
           </div>
-          <ArrowRight className="h-5 w-5 text-amber-400 transition-transform group-hover:translate-x-1" />
+          {!isComingSoon && (
+            <ArrowRight className="h-5 w-5 text-amber-400 transition-transform group-hover:translate-x-1" />
+          )}
         </div>
       </div>
     </div>

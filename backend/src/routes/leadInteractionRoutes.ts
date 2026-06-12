@@ -4,7 +4,7 @@ import { verifyToken } from "../middlewares/auth.js";
 
 const router = express.Router();
 
-router.get("/:id", getLeadInteractionById);
+router.get("/:id", verifyToken, getLeadInteractionById);
 router.patch("/:id", verifyToken, updateLeadInteraction);
 router.delete("/:id", verifyToken, deleteLeadInteraction);
 

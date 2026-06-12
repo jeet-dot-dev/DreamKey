@@ -14,11 +14,13 @@ import {
     Plus,
     Eye,
     Filter,
+    Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { toast } from 'sonner';
+import SharePropertyModal from '@/components/lead-interaction/SharePropertyModal';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLeads, type Lead } from '@/hooks/useLeads';
@@ -403,6 +405,7 @@ function LeadListPageContent() {
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [sharingLead, setSharingLead] = useState<Lead | null>(null);
 
     // Check query param to trigger new lead page
     useEffect(() => {
@@ -731,6 +734,15 @@ function LeadListPageContent() {
                                                             variant="ghost"
                                                             size="sm"
                                                             className="cursor-pointer text-neutral-450 hover:text-white"
+                                                            onClick={(e) => { e.stopPropagation(); setSharingLead(lead); }}
+                                                            title="Share property"
+                                                        >
+                                                            <Share2 className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="cursor-pointer text-neutral-450 hover:text-white"
                                                             onClick={(e) => handleEditClick(e, lead)}
                                                             title="Edit lead"
                                                         >
@@ -798,15 +810,18 @@ function LeadListPageContent() {
                                     </span></p>
                                     <p>Property Type: <span className="text-white">{lead.propertyType || 'N/A'}</span></p>
                                 </div>
-                                <div className="flex gap-2 border-t border-neutral-800 pt-2" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex justify-center gap-2 border-t border-neutral-800 pt-2" onClick={(e) => e.stopPropagation()}>
                                     <Button variant="ghost" size="sm" className="text-neutral-450 hover:text-white" onClick={() => router.push(`/leads/${lead.id}`)}>
-                                        <Eye className="h-4 w-4 mr-1" /> View
+                                        <Eye className="h-4 w-4 mr-1" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm" className="text-neutral-450 hover:text-white" onClick={(e) => { e.stopPropagation(); setSharingLead(lead); }}>
+                                        <Share2 className="h-4 w-4 mr-1" />
                                     </Button>
                                     <Button variant="ghost" size="sm" className="text-neutral-450 hover:text-white" onClick={(e) => handleEditClick(e, lead)}>
-                                        <Edit className="h-4 w-4 mr-1" /> Edit
+                                        <Edit className="h-4 w-4 mr-1" />
                                     </Button>
                                     <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-400 ml-auto" onClick={(e) => handleDeleteClick(e, lead)}>
-                                        <Trash2 className="h-4 w-4 mr-1" /> Delete
+                                        <Trash2 className="h-4 w-4 mr-1" />
                                     </Button>
                                 </div>
                             </div>
@@ -831,6 +846,18 @@ function LeadListPageContent() {
                 }
                 loading={isDeleting}
             />
+
+            {/* Share Property Modal */}
+            {sharingLead && (
+                <SharePropertyModal
+                    isOpen={!!sharingLead}
+                    onClose={() => setSharingLead(null)}
+                    leadId={sharingLead.id}
+                    leadName={sharingLead.name}
+                    leadPhone={sharingLead.phone}
+                    leadWhatsapp={sharingLead.whatsapp}
+                />
+            )}
 
         </div>
     );
