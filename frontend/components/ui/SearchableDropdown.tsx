@@ -71,11 +71,11 @@ export function SearchableDropdown({
         <span className={selectedOption ? "text-white" : "text-neutral-400"}>
           {selectedOption ? selectedOption.name : placeholder}
         </span>
-        <ChevronDown 
+        <ChevronDown
           className={cn(
             "h-4 w-4 text-yellow-400 transition-transform duration-200 shrink-0",
             isOpen && "rotate-180"
-          )} 
+          )}
         />
       </button>
 

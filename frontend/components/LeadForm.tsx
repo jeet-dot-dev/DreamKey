@@ -175,7 +175,7 @@ export default function LeadForm({ initialLead }: LeadFormProps) {
         </div>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-          
+
           {/* Header Title */}
           <div>
             <h1 className="text-3xl font-bold text-yellow-400">
@@ -194,7 +194,7 @@ export default function LeadForm({ initialLead }: LeadFormProps) {
               </div>
               <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">Basic Information</h2>
             </div>
-            
+
             <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
               <div>
                 <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
@@ -475,11 +475,10 @@ export default function LeadForm({ initialLead }: LeadFormProps) {
                   return (
                     <label
                       key={opt.value}
-                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer select-none transition-all ${
-                        isChecked
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer select-none transition-all ${isChecked
                           ? "bg-yellow-400/10 border-yellow-400 text-yellow-400"
                           : "bg-neutral-850/20 border-neutral-800 hover:border-neutral-700 text-neutral-300"
-                      }`}
+                        }`}
                     >
                       <input
                         type="checkbox"

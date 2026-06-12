@@ -20,13 +20,22 @@ export interface Broker {
   status: "ACTIVE" | "INACTIVE" | "BLOCKED";
 }
 
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+
 // Fetch owners from API
 export const fetchOwners = async (searchQuery: string = ""): Promise<Owner[]> => {
   try {
-    const query = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : "";
-    const response = await fetch(`/api/owners${query}`);
+    const query = searchQuery ? `?name=${encodeURIComponent(searchQuery)}` : "";
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch(`${apiBaseUrl}/api/v1/owner/get${query}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
     if (!response.ok) throw new Error("Failed to fetch owners");
-    return response.json();
+    const json = await response.json();
+    return Array.isArray(json) ? json : json.data ?? [];
   } catch (error) {
     console.error("Error fetching owners:", error);
     return [];
@@ -36,10 +45,17 @@ export const fetchOwners = async (searchQuery: string = ""): Promise<Owner[]> =>
 // Fetch brokers from API
 export const fetchBrokers = async (searchQuery: string = ""): Promise<Broker[]> => {
   try {
-    const query = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : "";
-    const response = await fetch(`/api/brokers${query}`);
+    const query = searchQuery ? `?name=${encodeURIComponent(searchQuery)}` : "";
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch(`${apiBaseUrl}/api/v1/broker/get${query}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
     if (!response.ok) throw new Error("Failed to fetch brokers");
-    return response.json();
+    const json = await response.json();
+    return Array.isArray(json) ? json : json.data ?? [];
   } catch (error) {
     console.error("Error fetching brokers:", error);
     return [];
@@ -49,13 +65,18 @@ export const fetchBrokers = async (searchQuery: string = ""): Promise<Broker[]> 
 // Create new owner
 export const createOwner = async (ownerData: Partial<Owner>): Promise<Owner> => {
   try {
-    const response = await fetch("/api/owners", {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch(`${apiBaseUrl}/api/v1/owner/add`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(ownerData),
     });
     if (!response.ok) throw new Error("Failed to create owner");
-    return response.json();
+    const json = await response.json();
+    return json.owner ?? json.data ?? json;
   } catch (error) {
     console.error("Error creating owner:", error);
     throw error;
@@ -65,13 +86,18 @@ export const createOwner = async (ownerData: Partial<Owner>): Promise<Owner> => 
 // Create new broker
 export const createBroker = async (brokerData: Partial<Broker>): Promise<Broker> => {
   try {
-    const response = await fetch("/api/brokers", {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch(`${apiBaseUrl}/api/v1/broker/add`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(brokerData),
     });
     if (!response.ok) throw new Error("Failed to create broker");
-    return response.json();
+    const json = await response.json();
+    return json.broker ?? json.data ?? json;
   } catch (error) {
     console.error("Error creating broker:", error);
     throw error;

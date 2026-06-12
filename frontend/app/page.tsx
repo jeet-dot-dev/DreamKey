@@ -1,8 +1,14 @@
+'use client'
+
 import { Calendar, Package, Users, AlertCircle, CheckSquare, CreditCard } from 'lucide-react'
 import { Header } from '@/components/header'
 import { ModuleCard } from '@/components/module-card'
 import { PropertyAnalytics } from '@/components/property-analytics'
 import { Footer } from '@/components/footer'
+import { useProperties } from '@/hooks/useProperties'
+import { useBrokers } from '@/hooks/useBrokers'
+import { useOwners } from '@/hooks/useOwners'
+import { useLeads } from '@/hooks/useLeads'
 
 export default function Dashboard() {
   const today = new Date().toLocaleDateString('en-US', {
@@ -12,12 +18,17 @@ export default function Dashboard() {
     day: 'numeric',
   })
 
+  const { properties, isLoading: loadingProperties } = useProperties({ limit: 1000 })
+  const { brokers, isLoading: loadingBrokers } = useBrokers()
+  const { owners, loading: loadingOwners } = useOwners()
+  const { leads, isLoading: loadingLeads } = useLeads()
+
   const modules = [
     {
       icon: <Package className="w-6 h-6" />,
       title: 'Stock Management',
       description: 'Centralized repository for high-value properties and portfolio assets.',
-      stat: '1,248 UNITS',
+      stat: loadingProperties ? 'LOADING...' : `${properties.length.toLocaleString()} UNITS`,
       statLabel: 'Units',
       varience: "stock",
     },
@@ -25,7 +36,7 @@ export default function Dashboard() {
       icon: <Users className="w-6 h-6" />,
       title: 'Broker Directory',
       description: 'Manage professional relationships and partnership commission structures.',
-      stat: '84 ACTIVE PARTNERS',
+      stat: loadingBrokers ? 'LOADING...' : `${brokers.filter(b => b.status === 'ACTIVE').length.toLocaleString()} ACTIVE PARTNERS`,
       statLabel: 'Partners',
       varience: "broker",
     },
@@ -33,7 +44,7 @@ export default function Dashboard() {
       icon: <Users className="w-6 h-6" />,
       title: 'Owner Directory',
       description: 'Detailed profiles of high-net-worth property owners and investors.',
-      stat: '312 PROFILES',
+      stat: loadingOwners ? 'LOADING...' : `${(owners?.length ?? 0).toLocaleString()} PROFILES`,
       statLabel: 'Profiles',
       varience: "owner",
     },
@@ -41,7 +52,7 @@ export default function Dashboard() {
       icon: <AlertCircle className="w-6 h-6" />,
       title: 'Leads',
       description: 'Automated reminder system for client nurturing and deal closures.',
-      stat: '12 PENDING TODAY',
+      stat: loadingLeads ? 'LOADING...' : `${leads.filter(l => l.status !== 'CLOSED' && l.status !== 'LOST').length.toLocaleString()} PENDING`,
       statLabel: 'Leads',
       statColor: 'gold' as const,
       varience: "leads",

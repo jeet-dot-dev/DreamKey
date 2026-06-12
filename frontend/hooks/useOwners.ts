@@ -67,7 +67,13 @@ export function useOwners(params?: { name?: string; email?: string; phone?: stri
       if (params?.partner) searchParams.set("partner", params.partner);
 
       const query = searchParams.toString();
-      const response = await fetch(`${apiBaseUrl}/api/v1/owner/get${query ? `?${query}` : ""}`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const response = await fetch(`${apiBaseUrl}/api/v1/owner/get${query ? `?${query}` : ""}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch owners: ${response.status} ${response.statusText}`);
       }
@@ -108,7 +114,13 @@ export function useOwner(ownerId?: string) {
     setError(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/v1/owner/${ownerId}`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const response = await fetch(`${apiBaseUrl}/api/v1/owner/${ownerId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch owner: ${response.status} ${response.statusText}`);
       }

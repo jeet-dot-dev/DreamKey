@@ -140,7 +140,13 @@ export const useProperties = (filters?: PropertyFilters): UsePropertiesReturn =>
       params.set('limit', String(filters?.limit ?? 200));
 
       const query = params.toString();
-      const response = await fetch(`${apiBaseUrl}/api/v1/property/get${query ? `?${query}` : ''}`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const response = await fetch(`${apiBaseUrl}/api/v1/property/get${query ? `?${query}` : ''}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch properties: ${response.statusText}`);
@@ -202,7 +208,13 @@ export const useProperty = (id?: string): UsePropertyReturn => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${apiBaseUrl}/api/v1/property/${id}`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const response = await fetch(`${apiBaseUrl}/api/v1/property/${id}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
 
       if (!response.ok) {
         if (response.status === 404) throw new Error('Property not found');

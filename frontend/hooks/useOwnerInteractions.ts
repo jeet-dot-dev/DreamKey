@@ -29,7 +29,13 @@ export function useOwnerInteractions(ownerId?: string): UseOwnerInteractionsResu
     setError(null);
 
     try {
-      const res = await fetch(`${apiBaseUrl}/api/v1/owner/interaction?ownerId=${encodeURIComponent(ownerId)}`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(`${apiBaseUrl}/api/v1/owner/interaction?ownerId=${encodeURIComponent(ownerId)}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const payload = await res.json();
       const list: OwnerInteraction[] = Array.isArray(payload) ? payload : payload.data ?? payload.interactions ?? [];

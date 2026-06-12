@@ -17,11 +17,11 @@ export default function BrokerForm({ initialBroker }: BrokerFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryBrokerId = searchParams.get("id");
-  
+
   // Use initialBroker id if provided, otherwise use query param
   const brokerId = initialBroker?.id || queryBrokerId;
   const isEditMode = !!brokerId && (!!initialBroker || !!queryBrokerId);
-  
+
   const { brokers } = useBrokers();
   const [isLoading, setIsLoading] = useState(isEditMode && !initialBroker);
 
@@ -206,7 +206,7 @@ export default function BrokerForm({ initialBroker }: BrokerFormProps) {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
-      
+
       console.error(
         `[${timestamp}] ERROR: Exception in broker form submission`,
         {
@@ -252,298 +252,298 @@ export default function BrokerForm({ initialBroker }: BrokerFormProps) {
                 : "Create a new broker profile"}
             </p>
           </div>
-        {/* SECTION 01: BASIC INFORMATION */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
-              01
-            </div>
-            <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
-              Basic Information
-            </h2>
-          </div>
-
-          <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
-            {/* Broker Name */}
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Broker Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. John Singh"
-                {...register("name")}
-                className={`dream-text-input ${errors.name ? "border-red-500 focus:ring-red-500" : ""}`}
-              />
-              {errors.name && (
-                <p className="mt-1 text-xs text-red-500">
-                  {errors.name.message}
-                </p>
-              )}
+          {/* SECTION 01: BASIC INFORMATION */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
+                01
+              </div>
+              <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
+                Basic Information
+              </h2>
             </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Email Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                placeholder="broker@example.com"
-                {...register("email")}
-                className={`dream-text-input ${errors.email ? "border-red-500 focus:ring-red-500" : ""}`}
-              />
-              {errors.email && (
-                <p className="mt-1 text-xs text-red-500">
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
-
-            {/* Phone & WhatsApp */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
+              {/* Broker Name */}
               <div>
                 <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Phone Number <span className="text-red-500">*</span>
+                  Broker Name <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="tel"
-                  placeholder="9876543210"
-                  {...register("phone")}
-                  className={`dream-text-input ${errors.phone ? "border-red-500 focus:ring-red-500" : ""}`}
+                  type="text"
+                  placeholder="e.g. John Singh"
+                  {...register("name")}
+                  className={`dream-text-input ${errors.name ? "border-red-500 focus:ring-red-500" : ""}`}
                 />
-                {errors.phone ? (
+                {errors.name && (
                   <p className="mt-1 text-xs text-red-500">
-                    {errors.phone.message}
+                    {errors.name.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
+                  Email Address <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  placeholder="broker@example.com"
+                  {...register("email")}
+                  className={`dream-text-input ${errors.email ? "border-red-500 focus:ring-red-500" : ""}`}
+                />
+                {errors.email && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Phone & WhatsApp */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="9876543210"
+                    {...register("phone")}
+                    className={`dream-text-input ${errors.phone ? "border-red-500 focus:ring-red-500" : ""}`}
+                  />
+                  {errors.phone ? (
+                    <p className="mt-1 text-xs text-red-500">
+                      {errors.phone.message}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-neutral-500 mt-1">
+                      10 digits only
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
+                    WhatsApp Number (Optional)
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="9876543210"
+                    {...register("whatsapp")}
+                    className={`dream-text-input ${errors.whatsapp ? "border-red-500 focus:ring-red-500" : ""}`}
+                  />
+                  {errors.whatsapp && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {errors.whatsapp.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
+                  Status
+                </label>
+                <select
+                  {...register("status")}
+                  className={`dream-select ${errors.status ? "border-red-500 focus:ring-red-500" : ""}`}
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                  <option value="BLOCKED">Blocked</option>
+                </select>
+                {errors.status && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.status.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 02: BUDGET RANGE */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
+                02
+              </div>
+              <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
+                Budget Range
+              </h2>
+            </div>
+
+            <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
+              {/* Budget Min & Max */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
+                    Minimum Budget
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-yellow-400">
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      {...register("budgetMin")}
+                      className={`dream-input pl-8 ${errors.budgetMin ? "border-red-500 focus:ring-red-500" : ""}`}
+                    />
+                  </div>
+                  {errors.budgetMin ? (
+                    <p className="mt-1 text-xs text-red-500">
+                      {errors.budgetMin.message}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-neutral-500 mt-1">
+                      Min amount broker can handle
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
+                    Maximum Budget
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-yellow-400">
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      {...register("budgetMax")}
+                      className={`dream-input pl-8 ${errors.budgetMax ? "border-red-500 focus:ring-red-500" : ""}`}
+                    />
+                  </div>
+                  {errors.budgetMax && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {errors.budgetMax.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 03: AREAS & EXPERTISE */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
+                03
+              </div>
+              <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
+                Areas & Expertise
+              </h2>
+            </div>
+
+            <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
+              {/* Areas of Operation */}
+              <div>
+                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
+                  Areas of Operation
+                </label>
+                <textarea
+                  placeholder="e.g. Bandra, Andheri, Powai, Dadar (separate by comma)"
+                  {...register("areaOfOperation")}
+                  rows={3}
+                  className={`dream-textarea ${errors.areaOfOperation ? "border-red-500 focus:ring-red-500" : ""}`}
+                />
+                {errors.areaOfOperation ? (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.areaOfOperation.message}
                   </p>
                 ) : (
                   <p className="text-xs text-neutral-500 mt-1">
-                    10 digits only
+                    List all areas where the broker operates (comma-separated)
                   </p>
                 )}
               </div>
+
+              {/* Society Expertise */}
               <div>
                 <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  WhatsApp Number (Optional)
+                  Society Expertise
                 </label>
-                <input
-                  type="tel"
-                  placeholder="9876543210"
-                  {...register("whatsapp")}
-                  className={`dream-text-input ${errors.whatsapp ? "border-red-500 focus:ring-red-500" : ""}`}
+                <textarea
+                  placeholder="e.g. Lodha Group, Godrej Properties, HDFC Holdings"
+                  {...register("societyExpertise")}
+                  rows={3}
+                  className={`dream-textarea ${errors.societyExpertise ? "border-red-500 focus:ring-red-500" : ""}`}
                 />
-                {errors.whatsapp && (
+                {errors.societyExpertise ? (
                   <p className="mt-1 text-xs text-red-500">
-                    {errors.whatsapp.message}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Status */}
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Status
-              </label>
-              <select
-                {...register("status")}
-                className={`dream-select ${errors.status ? "border-red-500 focus:ring-red-500" : ""}`}
-              >
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-                <option value="BLOCKED">Blocked</option>
-              </select>
-              {errors.status && (
-                <p className="mt-1 text-xs text-red-500">
-                  {errors.status.message}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 02: BUDGET RANGE */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
-              02
-            </div>
-            <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
-              Budget Range
-            </h2>
-          </div>
-
-          <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
-            {/* Budget Min & Max */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Minimum Budget
-                </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-yellow-400">
-                    ₹
-                  </span>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    {...register("budgetMin")}
-                    className={`dream-input pl-8 ${errors.budgetMin ? "border-red-500 focus:ring-red-500" : ""}`}
-                  />
-                </div>
-                {errors.budgetMin ? (
-                  <p className="mt-1 text-xs text-red-500">
-                    {errors.budgetMin.message}
+                    {errors.societyExpertise.message}
                   </p>
                 ) : (
                   <p className="text-xs text-neutral-500 mt-1">
-                    Min amount broker can handle
+                    List builder/society names the broker specializes in
                   </p>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* SECTION 04: ADDITIONAL NOTES */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
+                04
+              </div>
+              <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
+                Additional Notes
+              </h2>
+            </div>
+
+            <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
+              {/* Notes */}
               <div>
                 <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Maximum Budget
+                  Notes & Comments
                 </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-yellow-400">
-                    ₹
-                  </span>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    {...register("budgetMax")}
-                    className={`dream-input pl-8 ${errors.budgetMax ? "border-red-500 focus:ring-red-500" : ""}`}
-                  />
-                </div>
-                {errors.budgetMax && (
+                <textarea
+                  placeholder="Any additional information about the broker, referral source, special terms, etc."
+                  {...register("notes")}
+                  rows={4}
+                  className={`dream-textarea ${errors.notes ? "border-red-500 focus:ring-red-500" : ""}`}
+                />
+                {errors.notes && (
                   <p className="mt-1 text-xs text-red-500">
-                    {errors.budgetMax.message}
+                    {errors.notes.message}
                   </p>
                 )}
               </div>
             </div>
           </div>
-        </div>
 
-        {/* SECTION 03: AREAS & EXPERTISE */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
-              03
-            </div>
-            <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
-              Areas & Expertise
-            </h2>
-          </div>
-
-          <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
-            {/* Areas of Operation */}
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Areas of Operation
-              </label>
-              <textarea
-                placeholder="e.g. Bandra, Andheri, Powai, Dadar (separate by comma)"
-                {...register("areaOfOperation")}
-                rows={3}
-                className={`dream-textarea ${errors.areaOfOperation ? "border-red-500 focus:ring-red-500" : ""}`}
-              />
-              {errors.areaOfOperation ? (
-                <p className="mt-1 text-xs text-red-500">
-                  {errors.areaOfOperation.message}
-                </p>
+          {/* Form Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => router.push("/broker/overview")}
+              className="flex-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-semibold py-3 px-4 rounded-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-3 px-4 rounded-lg transition-all hover:shadow-lg hover:shadow-yellow-400/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  {isEditMode ? "Updating Broker..." : "Adding Broker..."}
+                </>
+              ) : isEditMode ? (
+                "Update Broker"
               ) : (
-                <p className="text-xs text-neutral-500 mt-1">
-                  List all areas where the broker operates (comma-separated)
-                </p>
+                "Add Broker"
               )}
-            </div>
-
-            {/* Society Expertise */}
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Society Expertise
-              </label>
-              <textarea
-                placeholder="e.g. Lodha Group, Godrej Properties, HDFC Holdings"
-                {...register("societyExpertise")}
-                rows={3}
-                className={`dream-textarea ${errors.societyExpertise ? "border-red-500 focus:ring-red-500" : ""}`}
-              />
-              {errors.societyExpertise ? (
-                <p className="mt-1 text-xs text-red-500">
-                  {errors.societyExpertise.message}
-                </p>
-              ) : (
-                <p className="text-xs text-neutral-500 mt-1">
-                  List builder/society names the broker specializes in
-                </p>
-              )}
-            </div>
+            </button>
           </div>
-        </div>
-
-        {/* SECTION 04: ADDITIONAL NOTES */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-yellow-500 text-black rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
-              04
-            </div>
-            <h2 className="text-xl font-bold text-yellow-400 uppercase tracking-tight">
-              Additional Notes
-            </h2>
-          </div>
-
-          <div className="bg-neutral-900/60 backdrop-blur border border-neutral-800 rounded-xl p-4 sm:p-6 space-y-4">
-            {/* Notes */}
-            <div>
-              <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                Notes & Comments
-              </label>
-              <textarea
-                placeholder="Any additional information about the broker, referral source, special terms, etc."
-                {...register("notes")}
-                rows={4}
-                className={`dream-textarea ${errors.notes ? "border-red-500 focus:ring-red-500" : ""}`}
-              />
-              {errors.notes && (
-                <p className="mt-1 text-xs text-red-500">
-                  {errors.notes.message}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Form Actions */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-4">
-          <button
-            type="button"
-            onClick={() => router.push("/broker/overview")}
-            className="flex-1 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-semibold py-3 px-4 rounded-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isSubmitting}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-3 px-4 rounded-lg transition-all hover:shadow-lg hover:shadow-yellow-400/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {isSubmitting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                {isEditMode ? "Updating Broker..." : "Adding Broker..."}
-              </>
-            ) : isEditMode ? (
-              "Update Broker"
-            ) : (
-              "Add Broker"
-            )}
-          </button>
-        </div>
-      </form>
+        </form>
       )}
     </div>
   );

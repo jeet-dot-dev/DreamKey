@@ -23,7 +23,13 @@ export function usePropertyStats() {
       setError(null);
 
       // Fetch a large limit to compute all stats client-side
-      const response = await fetch(`${apiBaseUrl}/api/v1/property/get?limit=1000`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const response = await fetch(`${apiBaseUrl}/api/v1/property/get?limit=1000`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch properties: ${response.statusText}`);
       }

@@ -29,8 +29,13 @@ export function useBrokerInteractions(brokerId?: string): UseBrokerInteractionsR
     setLoading(true);
     setError(null);
     try {
-      // Expected backend endpoint: GET /broker/interaction?brokerId={id}
-      const res = await fetch(`${apiBaseUrl}/api/v1/broker/interaction?brokerId=${encodeURIComponent(brokerId)}`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(`${apiBaseUrl}/api/v1/broker/interaction?brokerId=${encodeURIComponent(brokerId)}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const payload = await res.json();
       console.log("Fetched interactions payload:", payload);

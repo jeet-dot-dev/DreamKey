@@ -42,10 +42,12 @@ export const useLeads = (): UseLeadsReturn => {
       setIsLoading(true);
       setError(null);
 
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/leads`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 

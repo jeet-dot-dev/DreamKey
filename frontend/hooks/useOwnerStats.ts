@@ -22,8 +22,15 @@ export function useOwnerStats() {
       setLoading(true);
       setError(null);
 
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
       // Fetch owners
-      const ownersResponse = await fetch(`${apiBaseUrl}/api/v1/owner/get?limit=1000`);
+      const ownersResponse = await fetch(`${apiBaseUrl}/api/v1/owner/get?limit=1000`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       if (!ownersResponse.ok) {
         throw new Error(`Failed to fetch owners: ${ownersResponse.statusText}`);
       }
@@ -31,7 +38,12 @@ export function useOwnerStats() {
       const ownersList: Owner[] = Array.isArray(ownersJson) ? ownersJson : ownersJson.data ?? [];
 
       // Fetch properties to calculate portfolios
-      const propertiesResponse = await fetch(`${apiBaseUrl}/api/v1/property/get?limit=1000`);
+      const propertiesResponse = await fetch(`${apiBaseUrl}/api/v1/property/get?limit=1000`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       if (!propertiesResponse.ok) {
         throw new Error(`Failed to fetch properties: ${propertiesResponse.statusText}`);
       }

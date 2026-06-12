@@ -24,10 +24,12 @@ export function useLeadsStats() {
       setLoading(true);
       setError(null);
 
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const response = await fetch(`${apiBaseUrl}/api/v1/leads`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 

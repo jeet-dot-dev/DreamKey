@@ -271,7 +271,7 @@ export default function PropertyListingForm() {
     const slot = imageSlots.find((s) => s.kind === "new" && s.tempId === tempId) as NewImage | undefined;
     if (!slot) return;
     if (slot.uploadStatus === "uploaded" && slot.objectKey) {
-      try { await deleteFromR2(slot.objectKey); } catch {}
+      try { await deleteFromR2(slot.objectKey); } catch { }
     }
     URL.revokeObjectURL(slot.preview);
     setImageSlots((prev) => prev.filter((s) => !(s.kind === "new" && s.tempId === tempId)));
@@ -332,7 +332,7 @@ export default function PropertyListingForm() {
   const removeNewBrochure = async () => {
     if (brochureSlot?.kind !== "new") return;
     if (brochureSlot.uploadStatus === "uploaded" && brochureSlot.objectKey) {
-      try { await deleteFromR2(brochureSlot.objectKey); } catch {}
+      try { await deleteFromR2(brochureSlot.objectKey); } catch { }
     }
     if (brochureSlot.preview) URL.revokeObjectURL(brochureSlot.preview);
     setBrochureSlot(null);

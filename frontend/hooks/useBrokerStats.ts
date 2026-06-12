@@ -23,8 +23,15 @@ export function useBrokerStats() {
       setLoading(true);
       setError(null);
 
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+
       // Fetch brokers
-      const brokersResponse = await fetch(`${apiBaseUrl}/api/v1/broker/get?limit=1000`);
+      const brokersResponse = await fetch(`${apiBaseUrl}/api/v1/broker/get?limit=1000`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       if (!brokersResponse.ok) {
         throw new Error(`Failed to fetch brokers: ${brokersResponse.statusText}`);
       }
@@ -32,7 +39,12 @@ export function useBrokerStats() {
       const brokersList: Broker[] = Array.isArray(brokersJson) ? brokersJson : brokersJson.data ?? [];
 
       // Fetch properties to calculate sourced listings
-      const propertiesResponse = await fetch(`${apiBaseUrl}/api/v1/property/get?limit=1000`);
+      const propertiesResponse = await fetch(`${apiBaseUrl}/api/v1/property/get?limit=1000`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       if (!propertiesResponse.ok) {
         throw new Error(`Failed to fetch properties: ${propertiesResponse.statusText}`);
       }

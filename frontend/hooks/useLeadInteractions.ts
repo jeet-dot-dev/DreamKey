@@ -31,7 +31,13 @@ export function useLeadInteractions(leadId?: string): UseLeadInteractionsResult 
     setError(null);
 
     try {
-      const res = await fetch(`${apiBaseUrl}/api/v1/leads/${encodeURIComponent(leadId)}/interactions`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(`${apiBaseUrl}/api/v1/leads/${encodeURIComponent(leadId)}/interactions`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const payload = await res.json();
       const list: LeadInteraction[] = Array.isArray(payload) ? payload : payload.data ?? [];
