@@ -208,7 +208,7 @@ export const createProperty = async (req: AuthRequest, res: Response) => {
     }
 
     // Use transaction: if anything fails, media cleanup is needed
-    const created = await prisma.$transaction(async (tx) => {
+    const created = await prisma.$transaction(async (tx: any) => {
       return tx.propertyListing.create({
         data: createPayload,
         include: { amenities: true, images: true, societyBrochure: true },

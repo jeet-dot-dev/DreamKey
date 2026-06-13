@@ -160,7 +160,7 @@ export const getSharedProperty = async (req: ExpressRequest, res: Response) => {
       yearBuilt: p.yearBuilt,
       totalUnits: p.totalUnits,
       reraNumber: p.reraNumber,
-      images: p.images.map((img) => ({
+      images: p.images.map((img: any) => ({
         id: img.id,
         url: img.url,
         caption: img.caption,
