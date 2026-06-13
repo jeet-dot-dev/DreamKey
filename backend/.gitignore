@@ -18,8 +18,7 @@ npm-debug.log*
 # IDE files
 .vscode/
 
-# Prisma
-prisma/migrations/
+
 
 # Temporary files
 *.tmp
