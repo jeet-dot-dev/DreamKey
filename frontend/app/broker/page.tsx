@@ -7,7 +7,7 @@ export default function StockPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.push("/broker/overview");
+    router.push("/broker/lists");
   }, [router]);
 
   return null;

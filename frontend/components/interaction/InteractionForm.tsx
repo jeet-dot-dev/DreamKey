@@ -29,7 +29,13 @@ export default function InteractionForm({ brokerId, interactionId, onSaved }: Pr
       if (!interactionId) return;
       setInitialLoading(true);
       try {
-        const res = await fetch(`${apiBaseUrl}/api/v1/broker/interaction/${interactionId}`);
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${apiBaseUrl}/api/v1/broker/interaction/${interactionId}`, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
         if (!res.ok) throw new Error(`Failed to load interaction (${res.status})`);
         const payload = await res.json();
         const obj: Interaction = payload.data ?? payload;

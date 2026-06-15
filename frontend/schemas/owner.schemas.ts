@@ -3,7 +3,7 @@ import { z } from "zod";
 export const ownerSchema = z.object({
   name: z.string().min(3, "Owner name must be at least 3 characters").max(100, "Owner name must be less than 100 characters"),
   phone: z.string().length(10, "Please enter a valid 10-digit phone number").regex(/^\d+$/, "Phone number must contain only digits"),
-  email: z.string().email("Please enter a valid email address"),
+  email: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
   whatsapp: z.string().length(10, "Please enter a valid 10-digit WhatsApp number").regex(/^\d+$/, "WhatsApp number must contain only digits").optional().or(z.literal("")),
   address: z.string().optional().or(z.literal("")),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
@@ -17,6 +17,7 @@ export type OwnerFormData = z.infer<typeof ownerSchema>;
 
 export const ownerInsertSchema = ownerSchema.transform((data) => ({
   ...data,
+  email: data.email && data.email !== "" ? data.email : null,
   preferredRentMin: data.preferredRentMin && data.preferredRentMin !== "" ? BigInt(data.preferredRentMin) : null,
   preferredRentMax: data.preferredRentMax && data.preferredRentMax !== "" ? BigInt(data.preferredRentMax) : null,
   preferredPropertyTypes: data.preferredPropertyTypes

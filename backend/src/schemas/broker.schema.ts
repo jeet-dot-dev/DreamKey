@@ -10,7 +10,9 @@ export const brokerSchema = z.object({
 
   email: z
     .string()
-    .email("Please enter a valid email address"),
+    .email("Please enter a valid email address")
+    .optional()
+    .or(z.literal("")),
 
   phone: z
     .string()
@@ -92,7 +94,7 @@ export type BrokerFormData = z.infer<typeof brokerSchema>;
 // This will be converted to JSON arrays before sending to DB
 export const brokerInsertSchema = brokerSchema.transform((data) => ({
   name: data.name,
-  email: data.email,
+  email: data.email && data.email !== "" ? data.email : null,
   phone: data.phone,
   status: data.status,
   whatsapp: data.whatsapp && data.whatsapp !== "" ? data.whatsapp : null,

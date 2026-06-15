@@ -6,7 +6,7 @@ export default function LeadsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.push("/leads/overview");
+    router.push("/leads/lists");
   }, []);
 
   return null;

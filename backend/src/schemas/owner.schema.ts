@@ -6,7 +6,7 @@ export const ownerSchema = z.object({
     .min(3, "Owner name must be at least 3 characters")
     .max(100, "Owner name must be less than 100 characters"),
 
-  email: z.string().email("Please enter a valid email address"),
+  email: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
 
   phone: z
     .string()
@@ -48,7 +48,7 @@ export type OwnerFormData = z.infer<typeof ownerSchema>;
 export const ownerInsertSchema = ownerSchema.transform((data) => ({
   name: data.name,
   phone: data.phone,
-  email: data.email,
+  email: data.email && data.email !== "" ? data.email : null,
   whatsapp: data.whatsapp && data.whatsapp !== "" ? data.whatsapp : null,
   address: data.address && data.address !== "" ? data.address : null,
   status: data.status,

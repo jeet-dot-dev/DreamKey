@@ -172,7 +172,7 @@ export default function OwnerForm({ ownerId }: Props) {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-medium text-white">Email</label>
+          <label className="mb-2 block text-sm font-medium text-white">Email (Optional)</label>
           <Input {...register("email")} disabled={isSubmitting} placeholder="owner@example.com" className="bg-black border-neutral-700 text-white" />
           {errors.email && <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>}
         </div>

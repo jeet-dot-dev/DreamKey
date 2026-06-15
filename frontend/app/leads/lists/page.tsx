@@ -583,7 +583,7 @@ function LeadListPageContent() {
     };
 
     return (
-        <div className="w-full min-h-screen bg-background">
+        <div className="w-full min-h-screen bg-background rounded-lg">
             <div className="mx-auto max-w-7xl px-4 py-6">
 
                 {/* Header */}

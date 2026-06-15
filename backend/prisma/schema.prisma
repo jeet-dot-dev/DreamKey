@@ -69,7 +69,7 @@ model Owner {
   // Basic Information
   name String @db.VarChar(100)
   phone String @db.VarChar(10)
-  email String
+  email String?
   whatsapp String? @db.VarChar(10)
   address String? @db.Text
   
@@ -125,7 +125,7 @@ model Broker {
   // Basic Information
   name String @db.VarChar(100)
   phone String @db.VarChar(10)
-  email String
+  email String?
   whatsapp String? @db.VarChar(10)
   areaOfOperation String? @db.Text // JSON array of areas
   

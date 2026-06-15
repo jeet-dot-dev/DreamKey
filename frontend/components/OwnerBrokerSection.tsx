@@ -75,7 +75,7 @@ export default function OwnerBrokerSection({
 
   const handleCreateOwner = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newOwnerForm.name || !newOwnerForm.phone || !newOwnerForm.email) {
+    if (!newOwnerForm.name || !newOwnerForm.phone) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -98,7 +98,7 @@ export default function OwnerBrokerSection({
 
   const handleCreateBroker = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newBrokerForm.name || !newBrokerForm.phone || !newBrokerForm.email) {
+    if (!newBrokerForm.name || !newBrokerForm.phone) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -227,7 +227,7 @@ export default function OwnerBrokerSection({
                   />
                   <input
                     type="email"
-                    placeholder="Email *"
+                    placeholder="Email"
                     value={newOwnerForm.email}
                     onChange={(e) => setNewOwnerForm({ ...newOwnerForm, email: e.target.value })}
                     className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/40"
@@ -375,7 +375,7 @@ export default function OwnerBrokerSection({
                   />
                   <input
                     type="email"
-                    placeholder="Email *"
+                    placeholder="Email"
                     value={newBrokerForm.email}
                     onChange={(e) => setNewBrokerForm({ ...newBrokerForm, email: e.target.value })}
                     className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/40"

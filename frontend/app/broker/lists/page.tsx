@@ -304,7 +304,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
 export default function BrokerListPage() {
   const router = useRouter();
   const { brokers, isLoading: hookLoading, error, refetch } = useBrokers();
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const BROKERS_PER_PAGE = 10;
 
@@ -388,8 +388,8 @@ export default function BrokerListPage() {
       }
 
       // Area search (case-insensitive)
-      if (filters.searchArea && broker.areaOfOperation && 
-          !broker.areaOfOperation.toLowerCase().includes(filters.searchArea.toLowerCase())) {
+      if (filters.searchArea && broker.areaOfOperation &&
+        !broker.areaOfOperation.toLowerCase().includes(filters.searchArea.toLowerCase())) {
         return false;
       }
 
@@ -465,7 +465,7 @@ export default function BrokerListPage() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-background">
+    <div className="w-full min-h-screen bg-background rounded-lg">
       <div className="mx-auto max-w-7xl px-4 py-6">
         {/* Header */}
         <div className="mb-6">
@@ -572,10 +572,10 @@ export default function BrokerListPage() {
                             <Button variant="ghost" className='cursor-pointer' size="sm" onClick={() => handleView(broker.id)} title="View broker">
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm"className='cursor-pointer'  onClick={() => handleEdit(broker.id)} title="Edit broker">
+                            <Button variant="ghost" size="sm" className='cursor-pointer' onClick={() => handleEdit(broker.id)} title="Edit broker">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" className='cursor-pointer'  onClick={() => handleInteraction(broker.id)} title="Add interaction">
+                            <Button variant="ghost" size="sm" className='cursor-pointer' onClick={() => handleInteraction(broker.id)} title="Add interaction">
                               <Phone className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="sm" className='cursor-pointer text-red-500 hover:text-red-400 hover:bg-red-500/10' onClick={() => handleDeleteClick(broker)} title="Delete broker">

@@ -61,7 +61,7 @@ export function SearchableDropdown({
   const selectedOption = options.find((opt) => opt.id === selectedValue);
 
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className={cn("relative w-full", isOpen && "z-50")}>
       {/* Trigger Button */}
       <button
         type="button"
@@ -81,7 +81,7 @@ export function SearchableDropdown({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-neutral-900 border border-neutral-800 rounded-lg shadow-xl overflow-hidden backdrop-blur-md">
+        <div className="absolute z-[100] w-full mt-2 bg-neutral-900 border border-neutral-800 rounded-lg shadow-xl overflow-hidden backdrop-blur-md">
           {/* Search Input Container */}
           <div className="p-2 border-b border-neutral-800 flex items-center gap-2">
             <Search className="h-4 w-4 text-neutral-400 shrink-0 ml-1" />

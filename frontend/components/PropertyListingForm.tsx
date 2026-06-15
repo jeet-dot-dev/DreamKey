@@ -607,6 +607,18 @@ export default function PropertyListingForm() {
                       <div key={slot.id} className={cn("relative group", isDel && "opacity-40")}>
                         <div className="relative bg-neutral-800 rounded-lg overflow-hidden aspect-square">
                           <img src={slot.url} alt={slot.caption || "Property"} className="w-full h-full object-cover" />
+                          {/* Mobile close button */}
+                          {isDel ? (
+                            <button type="button" onClick={() => undoRemoveExistingImage(slot.id)}
+                              className="absolute top-2 right-2 z-10 px-2 py-1 bg-yellow-500 hover:bg-yellow-400 rounded-lg text-[10px] font-medium text-black md:hidden block cursor-pointer shadow-md">
+                              Undo
+                            </button>
+                          ) : (
+                            <button type="button" onClick={() => removeExistingImage(slot.id)}
+                              className="absolute top-2 right-2 z-10 p-1.5 bg-red-500 hover:bg-red-600 rounded-full text-white md:hidden block cursor-pointer shadow-md">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           {/* Overlay */}
                           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                             {isDel ? (
@@ -641,6 +653,11 @@ export default function PropertyListingForm() {
                     <div key={slot.tempId} className="relative group">
                       <div className="relative bg-neutral-800 rounded-lg overflow-hidden aspect-square">
                         <img src={slot.preview} alt="Preview" className="w-full h-full object-cover" />
+                        {/* Mobile close button */}
+                        <button type="button" onClick={() => removeNewImage(slot.tempId)}
+                          className="absolute top-2 right-2 z-10 p-1.5 bg-red-500 hover:bg-red-600 rounded-full text-white md:hidden block cursor-pointer shadow-md">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <button type="button" onClick={() => removeNewImage(slot.tempId)}
                             className="p-2 bg-red-500 hover:bg-red-600 rounded-lg">

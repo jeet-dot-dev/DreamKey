@@ -7,7 +7,7 @@ export default function OwnerRootPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.push("/owner/overview");
+    router.push("/owner/lists");
   }, [router]);
 
   return null;

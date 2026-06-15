@@ -12,6 +12,7 @@ import {
   X,
   Bell,
   Settings,
+  ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utlis";
 import { useRouter, usePathname } from "next/navigation";
@@ -34,6 +35,45 @@ export default function StockLayout({ children, variant = "stock" }: StockLayout
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+
+  const getParentPath = (): string => {
+    const parts = pathname.split("/").filter(Boolean);
+    if (parts.length === 0) return "/";
+
+    const moduleName = parts[0];
+
+    // Custom check for interaction list page
+    if (pathname.endsWith("/interaction")) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const id = searchParams.get("id") || searchParams.get("ownerId") || searchParams.get("brokerId");
+      if (id) {
+        return moduleName === "leads" ? `/${moduleName}/${id}` : `/${moduleName}/lists/${id}`;
+      }
+    }
+
+    // If we are on /leads/[id] (length 2)
+    if (moduleName === "leads" && parts.length === 2 && !["lists", "overview", "favorites", "archives", "add-listing"].includes(parts[1])) {
+      return "/leads/lists";
+    }
+
+    // Top-level tabs or main lists go to "/"
+    const topLevelPaths = ["overview", "lists", "archives", "favorites"];
+    if (parts.length === 2 && topLevelPaths.includes(parts[1])) {
+      return "/";
+    }
+
+    // For add-listing
+    if (parts.length === 2 && parts[1] === "add-listing") {
+      return `/${moduleName}/lists`;
+    }
+
+    // Fallback: remove the last segment
+    const query = typeof window !== "undefined" ? window.location.search : "";
+    return "/" + parts.slice(0, -1).join("/") + query;
+  };
+
+  const showBackButton = pathname !== "/";
+  const parentPath = showBackButton ? getParentPath() : "/";
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -297,7 +337,18 @@ export default function StockLayout({ children, variant = "stock" }: StockLayout
           </div> */}
 
           {/* Page Content */}
-          <div className="p-6 sm:p-8">{children}</div>
+          <div className="p-6 sm:p-8">
+            {showBackButton && (
+              <button
+                onClick={() => router.push(parentPath)}
+                className="group mb-6 flex items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/40 px-4 py-2 text-sm text-neutral-400 backdrop-blur-md transition-all hover:border-yellow-400/40 hover:text-yellow-400 hover:shadow-[0_0_15px_rgba(250,204,21,0.1)] focus:outline-none cursor-pointer"
+              >
+                <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                <span>Back</span>
+              </button>
+            )}
+            {children}
+          </div>
         </main>
       </div>
     </div>

@@ -351,13 +351,13 @@ export default function PropertyDetailPage() {
       <div className="mx-auto max-w-6xl px-4 py-8 md:px-6 lg:px-8">
         {/* Top Bar */}
         <div className="flex items-center justify-between mb-6">
-          <button
+          {/* <button
             onClick={() => router.back()}
             className="flex items-center gap-2 text-neutral-400 hover:text-white transition-colors text-sm cursor-pointer group"
           >
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
             Back to Properties
-          </button>
+          </button> */}
 
           <div className="flex gap-2">
             <Button

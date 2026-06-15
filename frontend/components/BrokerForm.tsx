@@ -285,7 +285,7 @@ export default function BrokerForm({ initialBroker }: BrokerFormProps) {
               {/* Email */}
               <div>
                 <label className="block text-xs uppercase tracking-widest text-neutral-400 font-semibold mb-2">
-                  Email Address <span className="text-red-500">*</span>
+                  Email Address (Optional)
                 </label>
                 <input
                   type="email"
