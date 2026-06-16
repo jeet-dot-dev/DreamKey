@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { useOwnerInteractions } from "@/hooks/useOwnerInteractions";
 import OwnerInteractionList from "@/components/owner-interaction/OwnerInteractionList";
 
 export default function OwnerInteractionPageClient() {
+  const router = useRouter();
   const search = useSearchParams();
   const ownerId = search?.get("id") ?? undefined;
 
@@ -37,7 +38,7 @@ export default function OwnerInteractionPageClient() {
             </div>
 
             <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={() => window.history.back()} className="border-neutral-700 bg-black/40 text-white hover:bg-neutral-800">
+              <Button variant="outline" onClick={() => router.back()} className="border-neutral-700 bg-black/40 text-white hover:bg-neutral-800">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>

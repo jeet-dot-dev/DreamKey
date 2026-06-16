@@ -1,12 +1,13 @@
 "use client";
 
 import React from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import InteractionForm from "@/components/interaction/InteractionForm";
 
 export default function BrokerInteractionAddClient() {
+  const router = useRouter();
   const search = useSearchParams();
   const brokerId = search?.get("id") ?? undefined;
   const interactionId = search?.get("interactionId") ?? null;
@@ -27,7 +28,7 @@ export default function BrokerInteractionAddClient() {
             </div>
 
             <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={() => window.history.back()} className="border-border/70 bg-background/70 hover:bg-muted/60">
+              <Button variant="outline" onClick={() => router.back()} className="border-border/70 bg-background/70 hover:bg-muted/60">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>

@@ -44,7 +44,7 @@ export default function StockLayout({ children, variant = "stock" }: StockLayout
 
     // Custom check for interaction list page
     if (pathname.endsWith("/interaction")) {
-      const searchParams = new URLSearchParams(window.location.search);
+      const searchParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
       const id = searchParams.get("id") || searchParams.get("ownerId") || searchParams.get("brokerId");
       if (id) {
         return moduleName === "leads" ? `/${moduleName}/${id}` : `/${moduleName}/lists/${id}`;
