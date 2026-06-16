@@ -6,6 +6,11 @@ import { signupSchema, loginSchema } from "../schemas/user.schema.js";
 import { z } from "zod";
 
 export const signup = async (req: Request, res: Response) => {
+  return res.status(403).json({
+    message: "Registration is temporarily disabled.",
+  });
+
+  /*
   try {
     const result = signupSchema.safeParse(req.body);
     if (!result.success) {
@@ -56,6 +61,7 @@ export const signup = async (req: Request, res: Response) => {
       error: error instanceof Error ? error.message : String(error),
     });
   }
+  */
 };
 
 export const login = async (req: Request, res: Response) => {
